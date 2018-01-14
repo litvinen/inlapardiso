@@ -9,10 +9,6 @@
 #include <malloc.h>
 #include <stdlib.h>
 
-
-
-
-
 // the full binary matrix is stored here
 typedef struct {
 	int n;						       // size

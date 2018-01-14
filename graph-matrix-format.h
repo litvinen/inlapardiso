@@ -16,6 +16,11 @@ typedef struct {
 	int **nbs;					       // list of neighbours
 } graph_t;
 
+
+typedef struct graph_t sgraph_t;
+typedef sgraph_t* pgraph_t;
+
+
 // this functions returns element Q_ij for i=j or i~j
 typedef double Qfunc_t(int i, int j, void *arg);
 graph_t *read_graph(char *filename);

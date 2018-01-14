@@ -1,0 +1,51 @@
+// Here Alex will implement his part
+
+// reordering, computed just once
+int alex_reordering(data_storage* mydata_storage, pgraph* mgraph)
+{
+  return 0;
+}
+
+//compute the symbolic factorization, computed just once
+int alex_symbolic_factorisation(data_storage* mydata_storage)
+{
+  return 0;
+}
+
+int alex_chol(data_storage* mydata_storage, pmatrix Q)
+{
+  return 0;
+}
+
+int alex_solve_Lx(data_storage* mydata_storage,  double* b)
+{
+  return 0;
+}
+
+
+int alex_solve_LTx(data_storage* mydata_storage,  double* b)
+{
+  return 0;
+}
+
+
+int alex_solve_LLTx(data_storage* mydata_storage,  double* b)
+{
+  return 0;
+}
+
+int alex_inv(data_storage* mydata_storage,  pmatrix Q)
+{
+  return 0;
+}
+
+
+int alex_log_det(data_storage* mydata_storage)
+{
+  return 0;
+}
+
+
+
+
+

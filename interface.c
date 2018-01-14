@@ -1,7 +1,41 @@
-// Here Alex will implement his part
+// This file contains interface between sparse solver Pardiso and INLA library
+// 14 January 2018
+// KAUST, Bayesian Computational statistics and modeling, CEMSE, KAUST, 
+// https://bayescomp.kaust.edu.sa/Pages/Home.aspx
+// Dr. Alexander Litvinenko and Prof. Haavrd Rue
+
+
+typedef struct data_storage sdata_storage;
+typedef sdata_storage* pdata_storage;
+
+/*The structure which contains all required data*/
+struct data_storage{
+  int rows;
+  int cols;
+  int nnz;
+  int* perm;
+  int* ia;
+  int* ja;
+  double* vals;
+};
+
+
+/*Coincidence matrix (GRAPH)*/
+typedef struct coin_matrix scoin_matrix;
+typedef scoin_matrix* pcoin_matrix;
+
+/*The structure which contains all required data*/
+struct coin_matrix{
+  int rows;
+  int cols;
+  int* ia;
+  int* ja;
+};
+
+
 
 // reordering, computed just once
-int alex_reordering(data_storage* mydata_storage, pgraph* mgraph)
+int alex_reordering(pdata_storage mydata_storage, pgraph* mgraph)
 {
   return 0;
 }

@@ -20,14 +20,24 @@ typedef struct data_storage sdata_storage;
 typedef sdata_storage* pdata_storage;
 
 
+struct spmatrix{
+   int     nia = 0;
+   int*    ia = NULL;
+   int*    ja = NULL;
+   double*  a = NULL;
+   int      nnz = 0;
+};
+typedef struct spvector sspvector;
+typedef sspvector* pspvector;
+
 
 struct spvector{
   int n;
   int* ind;
   double* vals;
 };
-typedef struct spvector sspvector;
-typedef sspvector* pspvector;
+typedef struct spmatrix sspmatrix;
+typedef sspmatrix* pspmatrix;
 
 //typedef struct {
 //	int n;						       // size
@@ -49,15 +59,19 @@ typedef sspvector* pspvector;
 //  int* ia;
 //  int* ja;
 //};
-int*    ia = NULL;
-int*    ja = NULL;
-double*  a = NULL;
+//int*    ia = NULL;
+//int*    ja = NULL;
+//double*  a = NULL;
     int      nnz = 0;
 
+pspmatrix Q; // Q precision matrix, given
+pspmatrix L; // Cholesky, Q=LL^T
+pspmatrix C; // C covariance, C=inv(Q). Could be a partial inverse
 
 void read_sparse_matrix()
 {
     /* Matrix data. */
+//    S = (pspmatrix) malloc(sizeof(sspmatrix));
     int    n = 0;
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
@@ -70,6 +84,7 @@ void read_sparse_matrix()
     }
     fscanf( f5, "%d\n", &anzv);
     n = anzv-1;
+    S->ia = n;
     ia=(int*)malloc((n+1)*sizeof(int));
     for( j = 0; j < anzv; j++)
     {
@@ -105,6 +120,11 @@ void read_sparse_matrix()
       fscanf( f5, "%lf", &elem);
       a[j] = elem; 
     }
+    S->ia = ia;
+    S->ja = ja;
+    S->a  = a;
+    S->nnz=nnz;
+
     fclose( f5);
 }   
 
@@ -337,6 +357,19 @@ int alex_log_det(data_storage* mydata_storage)
 }
 
 
+//Finalize and deallocate memory
 
+/* -------------------------------------------------------------------- */    
+/* ..  Termination and release of memory.                               */
+/* -------------------------------------------------------------------- */    
+int alex_finalize()
+{
+    int phase = -1;                 /* Release internal memory. */
+    
+    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
+             &n, &ddum, ia, ja, &idum, &nrhs,
+             iparm, &msglvl, &ddum, &ddum, &error,  dparm);
+
+}
 
 

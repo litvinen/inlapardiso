@@ -20,14 +20,24 @@ typedef struct data_storage sdata_storage;
 typedef sdata_storage* pdata_storage;
 
 
+struct spmatrix{
+   int     nia = 0;
+   int*    ia = NULL;
+   int*    ja = NULL;
+   double*  a = NULL;
+   int      nnz = 0;
+};
+typedef struct spvector sspvector;
+typedef sspvector* pspvector;
+
 
 struct spvector{
   int n;
   int* ind;
   double* vals;
 };
-typedef struct spvector sspvector;
-typedef sspvector* pspvector;
+typedef struct spmatrix sspmatrix;
+typedef sspmatrix* pspmatrix;
 
 //typedef struct {
 //	int n;						       // size
@@ -49,15 +59,18 @@ typedef sspvector* pspvector;
 //  int* ia;
 //  int* ja;
 //};
-int*    ia = NULL;
-int*    ja = NULL;
-double*  a = NULL;
-    int      nnz = 0;
+//int*    ia = NULL;
+//int*    ja = NULL;
+//double*  a = NULL;
 
+pspmatrix Q; // Q precision matrix, given
+pspmatrix L; // Cholesky, Q=LL^T
+pspmatrix C; // C covariance, C=inv(Q). Could be a partial inverse
 
 void read_sparse_matrix()
 {
     /* Matrix data. */
+//    Q = (pspmatrix) malloc(sizeof(sspmatrix));
     int    n = 0;
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
@@ -70,6 +83,7 @@ void read_sparse_matrix()
     }
     fscanf( f5, "%d\n", &anzv);
     n = anzv-1;
+    Q->ia = n;
     ia=(int*)malloc((n+1)*sizeof(int));
     for( j = 0; j < anzv; j++)
     {
@@ -105,6 +119,11 @@ void read_sparse_matrix()
       fscanf( f5, "%lf", &elem);
       a[j] = elem; 
     }
+    Q->ia = ia;
+    Q->ja = ja;
+    Q->a  = a;
+    Q->nnz=nnz;
+
     fclose( f5);
 }   
 

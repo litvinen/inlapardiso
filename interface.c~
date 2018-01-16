@@ -20,11 +20,13 @@ struct data_storage{
   int* ia;
   int* ja;
   double* vals;
+  pspmatrix L;
 };
 typedef struct data_storage sdata_storage;
 typedef sdata_storage* pdata_storage;
+/*end*/
 
-
+/*Sparse matrix structure */
 struct spmatrix{
    int     nia = 0;
    int*    ia = NULL;
@@ -32,17 +34,32 @@ struct spmatrix{
    double*  a = NULL;
    int      nnz = 0;
 };
-typedef struct spvector sspvector;
-typedef sspvector* pspvector;
-
-
-struct spvector{
-  int n;
-  int* ind;
-  double* vals;
-};
 typedef struct spmatrix sspmatrix;
 typedef sspmatrix* pspmatrix;
+/*end*/
+
+
+/* Sparse matrix structure as it is used in INLA*/
+struct matrixQ{
+  graph_t * g;
+  Qfunc_t Q;
+  void *arg;
+};
+typedef struct matrixQ smatrixQ;
+typedef smatrixQ* pmatrixQ;
+/*end*/
+
+
+
+//struct spvector{
+//  int n;
+//  int* ind;
+//  double* vals;
+//};
+//typedef struct spvector sspvector;
+//typedef sspvector* pspvector;
+
+
 
 //typedef struct {
 //	int n;						       // size
@@ -68,14 +85,36 @@ typedef sspmatrix* pspmatrix;
 //int*    ja = NULL;
 //double*  a = NULL;
 
-pspmatrix Q; // Q precision matrix, given
-pspmatrix L; // Cholesky, Q=LL^T
-pspmatrix C; // C covariance, C=inv(Q). Could be a partial inverse
 
-void read_sparse_matrix()
+/* Allocation and initialization of PARDISO variables*/
+void alex_initialization()
 {
-    /* Matrix data. */
-//    Q = (pspmatrix) malloc(sizeof(sspmatrix));
+   pspmatrix Q = (pspmatrix) malloc(sizeof(sspmatrix));
+//0="reordering"
+//1="symbolic factorization"
+//2="numerical factorization"
+//3="Cholesky factorization"
+//4="Partial inversion"
+   if(flag==0) //0="reordering"
+   {
+   }
+   if(flag==1) //1="symbolic factorization"
+   {
+   }
+   if(flag==2) //2="numerical factorization"
+   {}
+   if(flag==3) //3="Cholesky factorization"
+   {}
+   if(flag==4) //3="Partial inversion"
+   {}
+
+}  
+
+
+
+/* Read sparse matrix in matlab format */
+void read_sparse_matrix( pspmatrix Q)
+{
     int    n = 0;
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
@@ -133,8 +172,11 @@ void read_sparse_matrix()
 }   
 
 
+
+
+
 // reordering, computed just once
-int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph)
+int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph, int* mypermutation)
 {
     clock_t start, end;
     double cpu_time_used;
@@ -208,6 +250,9 @@ int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph)
     printf("\nNumber of factorization MFLOPS = %d", iparm[18]);
   return 0;
 }
+
+
+
 
 //compute the symbolic factorization, computed just once
 int alex_symbolic_factorization(pdata_storage mydata_storage)
@@ -286,6 +331,7 @@ int alex_chol(pdata_storage mydata_storage, pmatrix Q)
 {
    int phase = 22;
    iparm[32] = 1; /* compute determinant */
+    ini
    // start = clock();
     pardiso (pt, &maxfct, &mnum, &mtype, &phase,
              &n, a, ia, ja, &idum, &nrhs,
@@ -300,6 +346,9 @@ int alex_chol(pdata_storage mydata_storage, pmatrix Q)
     printf("\nFactorization completed ...\n ");
   return 0;
 }
+
+
+
 
 //Solve linear system Lx=b
 int alex_solve_Lx(pdata_storage mydata_storage,  double* b)
@@ -351,12 +400,28 @@ int alex_solve_LLTx(pdata_storage mydata_storage,  double* b)
 //Computing partial inverse, means solving linear system foer specific RHS
 int alex_inv(pdata_storage mydata_storage,  pmatrix Q)
 {
+  /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
+  U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
+  the selected inverse elements of A −1 . If IPARM(36) = 1 and PHASE = -22, PARDISO will
+  not overwrite these factors. It will instead allocate additional memory of size of the numbers of
+  elements in L and U to store these inverse elements.*/
   return 0;
 }
 
 //Compute log-det
-int alex_log_det(data_storage* mydata_storage)
+double alex_log_det(data_storage* mydata_storage)
 {
+   double logdet=0.0;
+   IPARM(33)=1;  //compute logdet
+/*
+  IPARM (33) — Determinant of a matrix.
+  Input
+  On entry: IPARM(33)=1 will compute the determinant of matrices and will return in DPARM(33)
+  the real part of the determinant and, if necessary, in DPARM(32) the complex part of the deter-
+  minant.
+  On output: The parameter returns the natural logarithm of the determinant of a sparse matrix
+  A. The default value of IPARM(33) is 0.
+*/
   return 0;
 }
 
@@ -366,7 +431,7 @@ int alex_log_det(data_storage* mydata_storage)
 /* -------------------------------------------------------------------- */    
 /* ..  Termination and release of memory.                               */
 /* -------------------------------------------------------------------- */    
-int alex_finalize()
+int alex_finalize(pdata_storage mydata_storage)
 {
     int phase = -1;                 /* Release internal memory. */
     

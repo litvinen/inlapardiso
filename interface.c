@@ -87,11 +87,62 @@ typedef smatrixQ* pmatrixQ;
 
 
 /* Allocation and initialization of PARDISO variables*/
-void initialization_pardiso()
+void alex_initialization(int flag)
 {
+
+    /* Numbers of processors, value of OMP_NUM_THREADS */
+    var = getenv("OMP_NUM_THREADS");
+    if(var != NULL)
+        sscanf( var, "%d", &num_procs );
+    else {
+        printf("Set environment OMP_NUM_THREADS to 1");
+        exit(1);
+    }
+    iparm[2]  = num_procs;
+
+
    pspmatrix Q = (pspmatrix) malloc(sizeof(sspmatrix));
-  
-}
+   pspmatrix L = (pspmatrix) malloc(sizeof(sspmatrix));
+//0="reordering"
+//1="symbolic factorization"
+//2="numerical factorization"
+//3="Cholesky factorization"
+//4="Partial inversion"
+   if(flag==0) //0="reordering"
+   {
+      int      mtype = -2;        /* Real symmetric matrix */
+      //       mtype = 1;   /* NOT real symmetric matrix*/      
+      void    *pt[64];     /* Internal solver memory pointer pt,*/
+
+      /* Pardiso control parameters. */
+      int      iparm[64];
+      double   dparm[64];
+      int      maxfct, mnum, phase, error, msglvl, solver;
+      int      num_procs;/* Number of processors. */
+      char    *var;        /* Auxiliary variables. */
+      int      i, k;       /* Auxiliary variables. */
+      double   ddum;              /* Double dummy */
+      int      idum;              /* Integer dummy. */
+     /* -------------------------------------------------------------------- */
+     /* ..  Setup Pardiso control parameters.                                */
+     /* -------------------------------------------------------------------- */
+     error = 0;
+     solver=0;/* use sparse direct solver */
+    //iparm[12]=1;
+
+   }
+   if(flag==1) //1="symbolic factorization"
+   {
+   }
+   if(flag==2) //2="numerical factorization"
+   {}
+   if(flag==3) //3="Cholesky factorization"
+   {}
+   if(flag==4) //4="Partial inversion"
+   {}
+
+}  
+
 
 
 /* Read sparse matrix in matlab format */
@@ -158,33 +209,14 @@ void read_sparse_matrix( pspmatrix Q)
 
 
 // reordering, computed just once
-int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph)
+int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph, int* mypermutation)
 {
     clock_t start, end;
     double cpu_time_used;
 
-
-    int      mtype = -2;        /* Real symmetric matrix */
-    //    int      mtype = 1;   /* NOT real symmetric matrix*/      
-    void    *pt[64];     /* Internal solver memory pointer pt,*/
-
-    /* Pardiso control parameters. */
-    int      iparm[64];
-    double   dparm[64];
-    int      maxfct, mnum, phase, error, msglvl, solver;
-    int      num_procs;/* Number of processors. */
-    char    *var;        /* Auxiliary variables. */
-    int      i, k;       /* Auxiliary variables. */
-    double   ddum;              /* Double dummy */
-    int      idum;              /* Integer dummy. */
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
-/* -------------------------------------------------------------------- */
-/* ..  Setup Pardiso control parameters.                                */
-/* -------------------------------------------------------------------- */
-    error = 0;
-    solver=0;/* use sparse direct solver */
-    //iparm[12]=1;
+    alex_initialization(1); // initialization for reordering
     pardisoinit (pt,  &mtype, &solver, iparm, dparm, &error); 
     if (error != 0) 
     {
@@ -199,15 +231,6 @@ int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph)
     else
         printf("[PARDISO]: License check was successful ... \n");
     
-    /* Numbers of processors, value of OMP_NUM_THREADS */
-    var = getenv("OMP_NUM_THREADS");
-    if(var != NULL)
-        sscanf( var, "%d", &num_procs );
-    else {
-        printf("Set environment OMP_NUM_THREADS to 1");
-        exit(1);
-    }
-    iparm[2]  = num_procs;
     maxfct = 1;		/* Maximum number of numerical factorizations.  */
     mnum   = 1;         /* Which factorization to use. */
     msglvl = 1;         /* Print statistical information  */
@@ -313,6 +336,7 @@ int alex_chol(pdata_storage mydata_storage, pmatrix Q)
 {
    int phase = 22;
    iparm[32] = 1; /* compute determinant */
+    ini
    // start = clock();
     pardiso (pt, &maxfct, &mnum, &mtype, &phase,
              &n, a, ia, ja, &idum, &nrhs,
@@ -381,12 +405,28 @@ int alex_solve_LLTx(pdata_storage mydata_storage,  double* b)
 //Computing partial inverse, means solving linear system foer specific RHS
 int alex_inv(pdata_storage mydata_storage,  pmatrix Q)
 {
+  /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
+  U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
+  the selected inverse elements of A −1 . If IPARM(36) = 1 and PHASE = -22, PARDISO will
+  not overwrite these factors. It will instead allocate additional memory of size of the numbers of
+  elements in L and U to store these inverse elements.*/
   return 0;
 }
 
 //Compute log-det
-int alex_log_det(data_storage* mydata_storage)
+double alex_log_det(data_storage* mydata_storage)
 {
+   double logdet=0.0;
+   IPARM(33)=1;  //compute logdet
+/*
+  IPARM (33) — Determinant of a matrix.
+  Input
+  On entry: IPARM(33)=1 will compute the determinant of matrices and will return in DPARM(33)
+  the real part of the determinant and, if necessary, in DPARM(32) the complex part of the deter-
+  minant.
+  On output: The parameter returns the natural logarithm of the determinant of a sparse matrix
+  A. The default value of IPARM(33) is 0.
+*/
   return 0;
 }
 

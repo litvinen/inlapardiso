@@ -442,6 +442,32 @@ int alex_solve_Lx(pdata_storage mydata,  double* b)
 //Solve linear system L^Tx=b
 int alex_solve_LTx(pdata_storage mydata,  double* b)
 {
+/* -------------------------------------------------------------------- */    
+/* ..  Back substitution and iterative refinement.                      */
+/* -------------------------------------------------------------------- */    
+    phase = 33;
+
+    iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
+   
+    start = clock();
+    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
+             &n, a, ia, ja, &idum, &nrhs,
+             iparm, &msglvl, b, x, &error,  dparm);
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    printf("!!!!!!!!!!!!1Back substitution and iterative refinement took %f seconds to execute \n", cpu_time_used );
+    if (error != 0) {
+        printf("\nERROR during solution: %d", error);
+        exit(3);
+    }
+
+    printf("\nSolve completed ... ");
+    printf("\nThe solution of the system is: ");
+    for (i = 0; i < n; i++) {
+//        printf("\n x [%d] = % f", i, x[i] );
+    }
+    printf ("\n\n");
+
   return 0;
 }
 
@@ -463,6 +489,32 @@ int alex_inv(pdata_storage mydata,  pmatrix Q)
   the selected inverse elements of A −1 . If IPARM(36) = 1 and PHASE = -22, PARDISO will
   not overwrite these factors. It will instead allocate additional memory of size of the numbers of
   elements in L and U to store these inverse elements.*/
+
+
+   if (solver == 0)
+    {
+    	printf("\nCompute Diagonal Elements of the inverse of A ... \n");
+	phase = -22;
+        iparm[35]  = 1; /*  no not overwrite internal factor L */ 
+
+        start = clock();
+
+        pardiso (pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
+             iparm, &msglvl, b, x, &error,  dparm);
+
+        end = clock();
+        cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
+ /* print diagonal elements */
+       for (k = 0; k < n; k++)
+       {
+            int j = ia[k]-1;      
+            printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, ja[j]-1, a[j]);
+       }
+
+    } 
+
+
   return 0;
 }
 

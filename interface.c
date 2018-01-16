@@ -4,6 +4,11 @@
 // https://bayescomp.kaust.edu.sa/Pages/Home.aspx
 // Dr. Alexander Litvinenko and Prof. Haavrd Rue
 
+/* -------------------------------------------------------------------- */    
+/* ..  We assume that the user is using the Fortran 1-based        */
+/*     indexing and not 0-based C-notation.  */
+/* -------------------------------------------------------------------- */ 
+
 #include "graph-matrix-format.h"
 
 /*The structure which contains all required data*/
@@ -15,11 +20,13 @@ struct data_storage{
   int* ia;
   int* ja;
   double* vals;
+  pspmatrix L;
 };
 typedef struct data_storage sdata_storage;
 typedef sdata_storage* pdata_storage;
+/*end*/
 
-
+/*Sparse matrix structure */
 struct spmatrix{
    int     nia = 0;
    int*    ia = NULL;
@@ -27,17 +34,32 @@ struct spmatrix{
    double*  a = NULL;
    int      nnz = 0;
 };
-typedef struct spvector sspvector;
-typedef sspvector* pspvector;
-
-
-struct spvector{
-  int n;
-  int* ind;
-  double* vals;
-};
 typedef struct spmatrix sspmatrix;
 typedef sspmatrix* pspmatrix;
+/*end*/
+
+
+/* Sparse matrix structure as it is used in INLA*/
+struct matrixQ{
+  graph_t * g;
+  Qfunc_t Q;
+  void *arg;
+};
+typedef struct matrixQ smatrixQ;
+typedef smatrixQ* pmatrixQ;
+/*end*/
+
+
+
+//struct spvector{
+//  int n;
+//  int* ind;
+//  double* vals;
+//};
+//typedef struct spvector sspvector;
+//typedef sspvector* pspvector;
+
+
 
 //typedef struct {
 //	int n;						       // size
@@ -63,14 +85,18 @@ typedef sspmatrix* pspmatrix;
 //int*    ja = NULL;
 //double*  a = NULL;
 
-pspmatrix Q; // Q precision matrix, given
-pspmatrix L; // Cholesky, Q=LL^T
-pspmatrix C; // C covariance, C=inv(Q). Could be a partial inverse
 
-void read_sparse_matrix()
+/* Allocation and initialization of PARDISO variables*/
+void initialization_pardiso()
 {
-    /* Matrix data. */
-//    Q = (pspmatrix) malloc(sizeof(sspmatrix));
+   pspmatrix Q = (pspmatrix) malloc(sizeof(sspmatrix));
+  
+}
+
+
+/* Read sparse matrix in matlab format */
+void read_sparse_matrix( pspmatrix Q)
+{
     int    n = 0;
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
@@ -126,6 +152,9 @@ void read_sparse_matrix()
 
     fclose( f5);
 }   
+
+
+
 
 
 // reordering, computed just once
@@ -203,6 +232,9 @@ int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph)
     printf("\nNumber of factorization MFLOPS = %d", iparm[18]);
   return 0;
 }
+
+
+
 
 //compute the symbolic factorization, computed just once
 int alex_symbolic_factorization(pdata_storage mydata_storage)
@@ -296,6 +328,9 @@ int alex_chol(pdata_storage mydata_storage, pmatrix Q)
   return 0;
 }
 
+
+
+
 //Solve linear system Lx=b
 int alex_solve_Lx(pdata_storage mydata_storage,  double* b)
 {
@@ -361,7 +396,7 @@ int alex_log_det(data_storage* mydata_storage)
 /* -------------------------------------------------------------------- */    
 /* ..  Termination and release of memory.                               */
 /* -------------------------------------------------------------------- */    
-int alex_finalize()
+int alex_finalize(pdata_storage mydata_storage)
 {
     int phase = -1;                 /* Release internal memory. */
     

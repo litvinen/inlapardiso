@@ -4,6 +4,11 @@
 // https://bayescomp.kaust.edu.sa/Pages/Home.aspx
 // Dr. Alexander Litvinenko and Prof. Haavrd Rue
 
+/* -------------------------------------------------------------------- */    
+/* ..  We assume that the user is using the Fortran 1-based        */
+/*     indexing and not 0-based C-notation.  */
+/* -------------------------------------------------------------------- */ 
+
 #include "graph-matrix-format.h"
 
 /*The structure which contains all required data*/
@@ -62,7 +67,6 @@ typedef sspmatrix* pspmatrix;
 //int*    ia = NULL;
 //int*    ja = NULL;
 //double*  a = NULL;
-    int      nnz = 0;
 
 pspmatrix Q; // Q precision matrix, given
 pspmatrix L; // Cholesky, Q=LL^T
@@ -71,7 +75,7 @@ pspmatrix C; // C covariance, C=inv(Q). Could be a partial inverse
 void read_sparse_matrix()
 {
     /* Matrix data. */
-//    S = (pspmatrix) malloc(sizeof(sspmatrix));
+//    Q = (pspmatrix) malloc(sizeof(sspmatrix));
     int    n = 0;
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
@@ -84,7 +88,7 @@ void read_sparse_matrix()
     }
     fscanf( f5, "%d\n", &anzv);
     n = anzv-1;
-    S->ia = n;
+    Q->ia = n;
     ia=(int*)malloc((n+1)*sizeof(int));
     for( j = 0; j < anzv; j++)
     {
@@ -120,10 +124,10 @@ void read_sparse_matrix()
       fscanf( f5, "%lf", &elem);
       a[j] = elem; 
     }
-    S->ia = ia;
-    S->ja = ja;
-    S->a  = a;
-    S->nnz=nnz;
+    Q->ia = ia;
+    Q->ja = ja;
+    Q->a  = a;
+    Q->nnz=nnz;
 
     fclose( f5);
 }   

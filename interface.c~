@@ -13,13 +13,21 @@
 
 /*The structure which contains all required data*/
 struct data_storage{
-  int rows;
-  int cols;
+  /* Internal solver memory pointer pt,                  */
+  /* 32-bit: int pt[64]; 64-bit: long int pt[64]         */
+  /* or void *pt[64] should be OK on both architectures  */ 
+  void    *pt[64]; 
+
+  /* Pardiso control parameters. */
+  int      iparm[64];
+  double   dparm[64];
+  int      maxfct, mnum, phase, error, msglvl, solver;
+
+  /* Number of processors. */
+  int      num_procs;
   int nnz;
+  int n;
   int* perm;
-  int* ia;
-  int* ja;
-  double* vals;
   pspmatrix L;
 };
 typedef struct data_storage sdata_storage;
@@ -87,16 +95,54 @@ typedef smatrixQ* pmatrixQ;
 
 
 /* Allocation and initialization of PARDISO variables*/
-void alex_initialization()
+void alex_initialization(int flag)
 {
+   int      mtype = -2;        /* Real symmetric matrix */
+      //       mtype = 1;   /* NOT real symmetric matrix*/      
+   void    *pt[64];     /* Internal solver memory pointer pt,*/
+
+      /* Pardiso control parameters. */
+   int      iparm[64];
+   double   dparm[64];
+
    pspmatrix Q = (pspmatrix) malloc(sizeof(sspmatrix));
-//0="reordering"
-//1="symbolic factorization"
-//2="numerical factorization"
-//3="Cholesky factorization"
-//4="Partial inversion"
+   pspmatrix L = (pspmatrix) malloc(sizeof(sspmatrix));
+
+    /* Numbers of processors, value of OMP_NUM_THREADS */
+    var = getenv("OMP_NUM_THREADS");
+    if(var != NULL)
+        sscanf( var, "%d", &num_procs );
+    else {
+        printf("Set environment OMP_NUM_THREADS to 1");
+        exit(1);
+    }
+    iparm[2]  = num_procs;
+    maxfct = 1;		/* Maximum number of numerical factorizations.  */
+    mnum   = 1;         /* Which factorization to use. */
+    msglvl = 1;         /* Print statistical information  */
+    error  = 0;         /* Initialize error flag */
+
+
+//flag==0=="reordering"
+//flag==1="symbolic factorization"
+//flag==2="numerical factorization"
+//flag==3="Cholesky factorization"
+//flag==4="Partial inversion"
    if(flag==0) //0="reordering"
    {
+      int      maxfct, mnum, phase, error, msglvl, solver;
+      int      num_procs;/* Number of processors. */
+      char    *var;        /* Auxiliary variables. */
+      int      i, k;       /* Auxiliary variables. */
+      double   ddum;              /* Double dummy */
+      int      idum;              /* Integer dummy. */
+     /* -------------------------------------------------------------------- */
+     /* ..  Setup Pardiso control parameters.                                */
+     /* -------------------------------------------------------------------- */
+     error = 0;
+     solver=0;/* use sparse direct solver */
+    //iparm[12]=1;
+
    }
    if(flag==1) //1="symbolic factorization"
    {
@@ -105,7 +151,7 @@ void alex_initialization()
    {}
    if(flag==3) //3="Cholesky factorization"
    {}
-   if(flag==4) //3="Partial inversion"
+   if(flag==4) //4="Partial inversion"
    {}
 
 }  
@@ -181,28 +227,7 @@ int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph, int* mypermut
     clock_t start, end;
     double cpu_time_used;
 
-
-    int      mtype = -2;        /* Real symmetric matrix */
-    //    int      mtype = 1;   /* NOT real symmetric matrix*/      
-    void    *pt[64];     /* Internal solver memory pointer pt,*/
-
-    /* Pardiso control parameters. */
-    int      iparm[64];
-    double   dparm[64];
-    int      maxfct, mnum, phase, error, msglvl, solver;
-    int      num_procs;/* Number of processors. */
-    char    *var;        /* Auxiliary variables. */
-    int      i, k;       /* Auxiliary variables. */
-    double   ddum;              /* Double dummy */
-    int      idum;              /* Integer dummy. */
-    FILE *f5;
-    int anzv=0, j=0, row_index=0, col_index=0;
-/* -------------------------------------------------------------------- */
-/* ..  Setup Pardiso control parameters.                                */
-/* -------------------------------------------------------------------- */
-    error = 0;
-    solver=0;/* use sparse direct solver */
-    //iparm[12]=1;
+    alex_initialization(1); // initialization for reordering
     pardisoinit (pt,  &mtype, &solver, iparm, dparm, &error); 
     if (error != 0) 
     {
@@ -216,26 +241,17 @@ int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph, int* mypermut
     }
     else
         printf("[PARDISO]: License check was successful ... \n");
-    
-    /* Numbers of processors, value of OMP_NUM_THREADS */
-    var = getenv("OMP_NUM_THREADS");
-    if(var != NULL)
-        sscanf( var, "%d", &num_procs );
-    else {
-        printf("Set environment OMP_NUM_THREADS to 1");
-        exit(1);
-    }
-    iparm[2]  = num_procs;
     maxfct = 1;		/* Maximum number of numerical factorizations.  */
     mnum   = 1;         /* Which factorization to use. */
     msglvl = 1;         /* Print statistical information  */
     error  = 0;         /* Initialize error flag */
+    pdata_storage mydata_storage = NULL;
 /* -------------------------------------------------------------------- */
 /* ..  Reordering and Symbolic Factorization.  This step also allocates */
 /*     all memory that is necessary for the factorization.              */
 /* -------------------------------------------------------------------- */
     phase = 11; //analysis
-    read_sparse_matrix();
+    read_sparse_matrix(mydata_storage);
 
     pardiso (pt, &maxfct, &mnum, &mtype, &phase,
 	     &n, a, ia, ja, &idum, &nrhs,
@@ -255,7 +271,7 @@ int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph, int* mypermut
 
 
 //compute the symbolic factorization, computed just once
-int alex_symbolic_factorization(pdata_storage mydata_storage)
+int alex_symbolic_factorization(pdata_storage mystorage)
 {
     int      mtype = -2;        /* Real symmetric matrix */
     //    int      mtype = 1;   /* NOT real symmetric matrix*/      
@@ -305,13 +321,16 @@ int alex_symbolic_factorization(pdata_storage mydata_storage)
     mnum   = 1;         /* Which factorization to use. */
     msglvl = 1;         /* Print statistical information  */
     error  = 0;         /* Initialize error flag */
-/* -------------------------------------------------------------------- */
-/* ..  Reordering and Symbolic Factorization.  This step also allocates */
-/*     all memory that is necessary for the factorization.              */
-/* -------------------------------------------------------------------- */
+   /* -------------------------------------------------------------------- */
+   /* ..  Reordering and Symbolic Factorization.  This step also allocates */
+   /*     all memory that is necessary for the factorization.              */
+   /* -------------------------------------------------------------------- */
     phase = 11; //analysis
     read_sparse_matrix();
-
+    a=mystorage->a;
+    ia = mystorage->ia;
+    ja = mystorage->ja;
+    n = mystorage->n;
     pardiso (pt, &maxfct, &mnum, &mtype, &phase,
 	     &n, a, ia, ja, &idum, &nrhs,
              iparm, &msglvl, &ddum, &ddum, &error, dparm);
@@ -438,6 +457,43 @@ int alex_finalize(pdata_storage mydata_storage)
     pardiso (pt, &maxfct, &mnum, &mtype, &phase,
              &n, &ddum, ia, ja, &idum, &nrhs,
              iparm, &msglvl, &ddum, &ddum, &error,  dparm);
+
+}
+
+
+int alex_main()
+{
+    clock_t start, end;
+    double cpu_time_used;
+    int      nnz = 0;
+    int      mtype = -2;        /* Real symmetric matrix */
+//    int      mtype = 1;       
+
+    /* RHS and solution vectors. */
+    double* b;
+    double* x;
+    int      nrhs = 1;          /* Number of right hand sides. */
+
+    /* Internal solver memory pointer pt,                  */
+    /* 32-bit: int pt[64]; 64-bit: long int pt[64]         */
+    /* or void *pt[64] should be OK on both architectures  */ 
+    void    *pt[64]; 
+    /* Pardiso control parameters. */
+    int      iparm[64];
+    double   dparm[64];
+    int      maxfct, mnum, phase, error, msglvl, solver;
+   
+    /* Number of processors. */
+    int      num_procs;
+
+    /* Auxiliary variables. */
+    char    *var;
+    int      i, k;
+
+    double   ddum;              /* Double dummy */
+    int      idum;              /* Integer dummy. */
+    pspmatrix Q;
+
 
 }
 

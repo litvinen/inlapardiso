@@ -150,13 +150,49 @@ void alex_initialization(int flag)
    if(flag==2) //2="numerical factorization"
    {}
    if(flag==3) //3="Cholesky factorization"
-   {}
+   {
+      IPARM(33)=1;  //compute logdet
+
+   }
    if(flag==4) //4="Partial inversion"
    {}
 
 }  
 
 
+void convert_F2C(pspmatrix Q)
+{
+/* -------------------------------------------------------------------- */    
+/* ..  Convert matrix back to 0-based C-notation.                       */
+/* -------------------------------------------------------------------- */ 
+   int n=Q->n;
+   int i=0;
+    for (i = 0; i < n+1; i++) {
+        Q->ia[i] -= 1;
+    }
+    for (i = 0; i < nnz; i++) {
+        Q->ja[i] -= 1;
+    }
+}
+
+
+void convert_C2F(pspmatrix Q)
+{
+/* -------------------------------------------------------------------- */
+/* ..  Convert matrix from 0-based C-notation to Fortran 1-based        */
+/*     notation.                                                        */
+/* -------------------------------------------------------------------- */
+   int n=Q->n;
+   int i=0;
+   for (i = 0; i < n+1; i++) 
+   {
+        Q->ia[i] += 1;
+   }
+   for (i = 0; i < nnz; i++) 
+   {
+        Q->ja[i] += 1;
+   }
+}
 
 /* Read sparse matrix in matlab format */
 void read_sparse_matrix( pspmatrix Q)
@@ -463,6 +499,11 @@ int alex_finalize(pdata_storage mydata)
 
 }
 
+int alex_clean_mydata(pdata_storage  mydata)
+{
+   /* To clean what is necessary in mydata->... */
+}
+
 
 /* To test the code run this procedure */
 int alex_main()
@@ -493,23 +534,23 @@ int alex_main()
     int      num_procs;/* Number of processors. */
     /* Auxiliary variables. */
     char    *var;
-    int      i, k;
+    int      i, k, j;
     double   ddum;              /* Double dummy */
     int      idum;              /* Integer dummy. */
-    pspmatrix Q, Qinv;
+    pspmatrix Q = NULL, Qinv=NULL, L=NULL;
     pgraph_t mgraph = NULL;
     int* mypermutation = NULL;
-    /* RHS and solution vectors. */
-    double* b;
-    double* x;
-    int*  mypermutation;
+
+    double* b = NULL;     /* RHS and solution vectors. */
+    double* x = NULL;
+    int*  mypermutation = NULL;
 
     mydata->mtype = -2;
     mydata->rhs = 1;
 
     mypermutation = (int*)malloc(n*sizeof(int)) ;
     for( j = 0; j < n; j++)
-      mypermutation[j]=j;
+      mypermutation[j] = j;
 
 
 
@@ -518,21 +559,28 @@ int alex_main()
 
 
     read_sparse_matrix(Q, mydata);
+    convert_C2F(Q);
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);
-   
+    alex_clean_mydata(mydata);
+
     alex_initialization(1, mydata); //flag==1="symbolic factorization"
     alex_initialization(2, mydata); //flag==2="numerical factorization"
     alex_symbolic_factorization(mydata);
+    alex_clean_mydata(mydata);
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
-    alex_chol(mydata, Q);
+    alex_chol(mydata, Q , L);
+    alex_clean_mydata(mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"
     alex_solve_LLTx(mydata, b, x);
+    alex_clean_mydata(mydata);
 
     alex_initialization(4, mydata); //flag==4="Partial inversion"
     alex_inv(mydata, Q, Qinv);
+    alex_clean_mydata(mydata);
+    convert_F2C(Q);
 
 }
 

@@ -150,13 +150,49 @@ void alex_initialization(int flag)
    if(flag==2) //2="numerical factorization"
    {}
    if(flag==3) //3="Cholesky factorization"
-   {}
+   {
+      IPARM(33)=1;  //compute logdet
+
+   }
    if(flag==4) //4="Partial inversion"
    {}
 
 }  
 
 
+void convert_F2C(pspmatrix Q)
+{
+/* -------------------------------------------------------------------- */    
+/* ..  Convert matrix back to 0-based C-notation.                       */
+/* -------------------------------------------------------------------- */ 
+   int n=Q->n;
+   int i=0;
+    for (i = 0; i < n+1; i++) {
+        Q->ia[i] -= 1;
+    }
+    for (i = 0; i < nnz; i++) {
+        Q->ja[i] -= 1;
+    }
+}
+
+
+void convert_C2F(pspmatrix Q)
+{
+/* -------------------------------------------------------------------- */
+/* ..  Convert matrix from 0-based C-notation to Fortran 1-based        */
+/*     notation.                                                        */
+/* -------------------------------------------------------------------- */
+   int n=Q->n;
+   int i=0;
+   for (i = 0; i < n+1; i++) 
+   {
+        Q->ia[i] += 1;
+   }
+   for (i = 0; i < nnz; i++) 
+   {
+        Q->ja[i] += 1;
+   }
+}
 
 /* Read sparse matrix in matlab format */
 void read_sparse_matrix( pspmatrix Q)
@@ -222,7 +258,7 @@ void read_sparse_matrix( pspmatrix Q)
 
 
 // reordering, computed just once
-int alex_reordering(pdata_storage mydata_storage, pgraph_t mgraph, int* mypermutation)
+int alex_reordering(pdata_storage mydata, pgraph_t mgraph, int* mypermutation)
 {
     clock_t start, end;
     double cpu_time_used;
@@ -346,7 +382,7 @@ int alex_symbolic_factorization(pdata_storage mystorage)
 }
 
 //Numerical Cholesky factorization
-int alex_chol(pdata_storage mydata_storage, pmatrix Q)
+int alex_chol(pdata_storage mydata, pmatrix Q)
 {
    int phase = 22;
    iparm[32] = 1; /* compute determinant */
@@ -370,7 +406,7 @@ int alex_chol(pdata_storage mydata_storage, pmatrix Q)
 
 
 //Solve linear system Lx=b
-int alex_solve_Lx(pdata_storage mydata_storage,  double* b)
+int alex_solve_Lx(pdata_storage mydata,  double* b)
 {
 
 /* ..  Back substitution and iterative refinement.                      */
@@ -404,20 +440,23 @@ int alex_solve_Lx(pdata_storage mydata_storage,  double* b)
 
 
 //Solve linear system L^Tx=b
-int alex_solve_LTx(pdata_storage mydata_storage,  double* b)
+int alex_solve_LTx(pdata_storage mydata,  double* b)
 {
   return 0;
 }
 
 
 //Solve linear system LL^Tx=b
-int alex_solve_LLTx(pdata_storage mydata_storage,  double* b)
+int alex_solve_LLTx(pdata_storage mydata,  double* b)
 {
+  alex_solve_Lx(mydata,  b);
+  alex_solve_LTx(mydata, b);
+    
   return 0;
 }
 
 //Computing partial inverse, means solving linear system foer specific RHS
-int alex_inv(pdata_storage mydata_storage,  pmatrix Q)
+int alex_inv(pdata_storage mydata,  pmatrix Q)
 {
   /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
   U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
@@ -428,7 +467,7 @@ int alex_inv(pdata_storage mydata_storage,  pmatrix Q)
 }
 
 //Compute log-det
-double alex_log_det(data_storage* mydata_storage)
+double alex_log_det(data_storage* mydata)
 {
    double logdet=0.0;
    IPARM(33)=1;  //compute logdet
@@ -450,7 +489,7 @@ double alex_log_det(data_storage* mydata_storage)
 /* -------------------------------------------------------------------- */    
 /* ..  Termination and release of memory.                               */
 /* -------------------------------------------------------------------- */    
-int alex_finalize(pdata_storage mydata_storage)
+int alex_finalize(pdata_storage mydata)
 {
     int phase = -1;                 /* Release internal memory. */
     
@@ -460,19 +499,29 @@ int alex_finalize(pdata_storage mydata_storage)
 
 }
 
+int alex_clean_mydata(pdata_storage  mydata)
+{
+   /* To clean what is necessary in mydata->... */
+}
 
+
+/* To test the code run this procedure */
 int alex_main()
 {
-    clock_t start, end;
-    double cpu_time_used;
-    int      nnz = 0;
-    int      mtype = -2;        /* Real symmetric matrix */
-//    int      mtype = 1;       
+   clock_t start, end;
+   double cpu_time_used;
+   pdata_storage mydata;
 
-    /* RHS and solution vectors. */
-    double* b;
-    double* x;
-    int      nrhs = 1;          /* Number of right hand sides. */
+   int nnz;
+   int n;
+   int* perm;
+   pspmatrix L;
+   int mtype = -2;        /* Real symmetric matrix */
+
+    
+   double* b; /* RHS and solution vectors. */
+   double* x;
+   int nrhs = 1;          /* Number of right hand sides. */
 
     /* Internal solver memory pointer pt,                  */
     /* 32-bit: int pt[64]; 64-bit: long int pt[64]         */
@@ -482,18 +531,54 @@ int alex_main()
     int      iparm[64];
     double   dparm[64];
     int      maxfct, mnum, phase, error, msglvl, solver;
-   
-    /* Number of processors. */
-    int      num_procs;
-
+    int      num_procs;/* Number of processors. */
     /* Auxiliary variables. */
     char    *var;
-    int      i, k;
-
+    int      i, k, j;
     double   ddum;              /* Double dummy */
     int      idum;              /* Integer dummy. */
-    pspmatrix Q;
+    pspmatrix Q = NULL, Qinv=NULL, L=NULL;
+    pgraph_t mgraph = NULL;
+    int* mypermutation = NULL;
 
+    double* b = NULL;     /* RHS and solution vectors. */
+    double* x = NULL;
+    int*  mypermutation = NULL;
+
+    mydata->mtype = -2;
+    mydata->rhs = 1;
+
+    mypermutation = (int*)malloc(n*sizeof(int)) ;
+    for( j = 0; j < n; j++)
+      mypermutation[j] = j;
+
+
+
+
+
+
+
+    read_sparse_matrix(Q, mydata);
+    alex_initialization(0, mydata); //flag==0=="reordering"
+    alex_reordering(mydata, mgraph, mypermutation);
+    alex_clean_mydata(mydata);
+
+    alex_initialization(1, mydata); //flag==1="symbolic factorization"
+    alex_initialization(2, mydata); //flag==2="numerical factorization"
+    alex_symbolic_factorization(mydata);
+    alex_clean_mydata(mydata);
+
+    alex_initialization(3, mydata); //flag==3="Cholesky factorization"
+    alex_chol(mydata, Q , L);
+    alex_clean_mydata(mydata);
+
+    alex_initialization(5, mydata); //flag==5="Solution"
+    alex_solve_LLTx(mydata, b, x);
+    alex_clean_mydata(mydata);
+
+    alex_initialization(4, mydata); //flag==4="Partial inversion"
+    alex_inv(mydata, Q, Qinv);
+    alex_clean_mydata(mydata);
 
 }
 

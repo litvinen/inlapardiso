@@ -1,13 +1,19 @@
-// This file contains interface between sparse solver Pardiso and INLA library
+// This file contains interface functions between the sparse solver Pardiso and the INLA library
 // 14 January 2018
 // KAUST, Bayesian Computational statistics and modeling, CEMSE, KAUST, 
 // https://bayescomp.kaust.edu.sa/Pages/Home.aspx
-// Dr. Alexander Litvinenko and Prof. Haavrd Rue
+// Dr. Alexander Litvinenko and Prof. Haavard Rue
 
 /* -------------------------------------------------------------------- */    
 /* ..  We assume that the user is using the Fortran 1-based        */
 /*     indexing and not 0-based C-notation.  */
 /* -------------------------------------------------------------------- */ 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <time.h>
+
 
 #include "graph-matrix-format.h"
 
@@ -48,13 +54,13 @@ typedef sspmatrix* pspmatrix;
 
 
 /* Sparse matrix structure as it is used in INLA*/
-struct matrixQ{
+struct INLA_mtx{
   graph_t * g;
   Qfunc_t Q;
   void *arg;
 };
-typedef struct matrixQ smatrixQ;
-typedef smatrixQ* pmatrixQ;
+typedef struct INLA_mtx sINLA_mtx;
+typedef sINLA_mtx* pINLA_mtx;
 /*end*/
 
 
@@ -146,16 +152,26 @@ void alex_initialization(int flag)
    }
    if(flag==1) //1="symbolic factorization"
    {
+      phase=11;
    }
    if(flag==2) //2="numerical factorization"
-   {}
+   {
+      phase=22;
+   }
    if(flag==3) //3="Cholesky factorization"
    {
+      phase=12;
       IPARM(33)=1;  //compute logdet
 
    }
-   if(flag==4) //4="Partial inversion"
-   {}
+   if(flag==4) //4="Selected inversion"
+   {
+      phase=-22;
+   }
+   if(flag==5) //4="Solve for x"
+   {
+      phase=33;
+   }
 
 }  
 
@@ -382,7 +398,7 @@ int alex_symbolic_factorization(pdata_storage mystorage)
 }
 
 //Numerical Cholesky factorization
-int alex_chol(pdata_storage mydata, pmatrix Q)
+int alex_chol(pdata_storage mydata, pINLA_mtx Q)
 {
    int phase = 22;
    iparm[32] = 1; /* compute determinant */
@@ -482,7 +498,7 @@ int alex_solve_LLTx(pdata_storage mydata,  double* b)
 }
 
 //Computing partial inverse, means solving linear system foer specific RHS
-int alex_inv(pdata_storage mydata,  pmatrix Q)
+int alex_inv(pdata_storage mydata,  pINLA_mtx Q)
 {
   /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
   U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
@@ -593,12 +609,13 @@ int alex_main()
     pgraph_t mgraph = NULL;
     int* mypermutation = NULL;
 
-    double* b = NULL;     /* RHS and solution vectors. */
-    double* x = NULL;
-    int*  mypermutation = NULL;
+    solver=0;/* use sparse direct solver */
+    mtype=-2;
+    nrhs=1;
 
-    mydata->mtype = -2;
-    mydata->rhs = 1;
+    mydata->mtype = mtype;
+    mydata->nrhs = nrhs
+    mydata->solver = solver;
 
     mypermutation = (int*)malloc(n*sizeof(int)) ;
     for( j = 0; j < n; j++)
@@ -607,11 +624,10 @@ int alex_main()
 
 
 
-
-
-
-    read_sparse_matrix(Q, mydata);
+    read_sparse_matrix(Q);
     convert_C2F(Q);
+    pardisoinit (pt,  &mtype, &solver, iparm, dparm, &error); 
+
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);
     alex_clean_mydata(mydata);

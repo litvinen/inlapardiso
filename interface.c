@@ -27,14 +27,27 @@ struct data_storage{
   /* Pardiso control parameters. */
   int      iparm[64];
   double   dparm[64];
-  int      maxfct, mnum, phase, error, msglvl, solver;
 
-  /* Number of processors. */
-  int      num_procs;
+  int      maxfct;
+  int      mnum;
+  int      phase;
+  int      error;
+  int      msglvl;
+  int      solver;
+  int      num_procs;   /* Number of processors. */
   int nnz;
   int n;
   int* perm;
   pspmatrix L;
+
+  char    *var;        /* Auxiliary variables. */
+  int      i, k;       /* Auxiliary variables. */
+  double   ddum;              /* Double dummy */
+  int      idum;              /* Integer dummy. */
+  pspmatrix Q = NULL;
+  pspmatrix L = NULL;
+//  pspmatrix L = (pspmatrix) malloc(sizeof(sspmatrix));
+
 };
 typedef struct data_storage sdata_storage;
 typedef sdata_storage* pdata_storage;
@@ -101,77 +114,94 @@ typedef sINLA_mtx* pINLA_mtx;
 
 
 /* Allocation and initialization of PARDISO variables*/
-void alex_initialization(int flag)
+void alex_initialization(int flag, pdata_storage mydata)
 {
-   int      mtype = -2;        /* Real symmetric matrix */
-      //       mtype = 1;   /* NOT real symmetric matrix*/      
-   void    *pt[64];     /* Internal solver memory pointer pt,*/
 
-      /* Pardiso control parameters. */
-   int      iparm[64];
-   double   dparm[64];
-
-   pspmatrix Q = (pspmatrix) malloc(sizeof(sspmatrix));
-   pspmatrix L = (pspmatrix) malloc(sizeof(sspmatrix));
-
-    /* Numbers of processors, value of OMP_NUM_THREADS */
-    var = getenv("OMP_NUM_THREADS");
-    if(var != NULL)
-        sscanf( var, "%d", &num_procs );
-    else {
-        printf("Set environment OMP_NUM_THREADS to 1");
-        exit(1);
-    }
-    iparm[2]  = num_procs;
-    maxfct = 1;		/* Maximum number of numerical factorizations.  */
-    mnum   = 1;         /* Which factorization to use. */
-    msglvl = 1;         /* Print statistical information  */
-    error  = 0;         /* Initialize error flag */
-
-
+//flag==-1=="initial/common initialization of PARDISO"
 //flag==0=="reordering"
 //flag==1="symbolic factorization"
 //flag==2="numerical factorization"
 //flag==3="Cholesky factorization"
 //flag==4="Partial inversion"
+
+
+   if(flag==-1) //general initialization
+   { 
+     pardisoinit (mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm, 
+        &(mydata->error)); 
+     if (mydata->error != 0) 
+     {
+        if (mydata->error == -10 )
+           printf("No license file found \n");
+        if (mydata->error == -11 )
+           printf("License is expired \n");
+        if (mydata->error == -12 )
+           printf("Wrong username or hostname \n");
+         return 1; 
+     }
+     else
+        printf("[PARDISO]: License check was successful ... \n");
+    
+     /* Numbers of processors, value of OMP_NUM_THREADS */
+     var = getenv("OMP_NUM_THREADS");
+     if(var != NULL)
+        sscanf( var, "%d", &num_procs );
+     else {
+        printf("Set environment OMP_NUM_THREADS to 1");
+        exit(1);
+     }
+     mydata->iparm[2]  = num_procs;
+
+     mydata->maxfct = 1;		/* Maximum number of numerical factorizations.  */
+     mydata->mnum   = 1;         /* Which factorization to use. */
+     mydata->msglvl = 1;         /* Print statistical information  */
+     mydata->error  = 0;         /* Initialize error flag */
+
+
+
+     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->error));
+     if (mydata->error != 0) {
+        printf("\nERROR in consistency of matrix: %d", mydata->error);
+        exit(1);
+     }
+   }
+
+
    if(flag==0) //0="reordering"
    {
-      int      maxfct, mnum, phase, error, msglvl, solver;
-      int      num_procs;/* Number of processors. */
-      char    *var;        /* Auxiliary variables. */
-      int      i, k;       /* Auxiliary variables. */
-      double   ddum;              /* Double dummy */
-      int      idum;              /* Integer dummy. */
      /* -------------------------------------------------------------------- */
      /* ..  Setup Pardiso control parameters.                                */
      /* -------------------------------------------------------------------- */
-     error = 0;
-     solver=0;/* use sparse direct solver */
+      mydata->phase = 11; 
+      mydata->error = 0;
     //iparm[12]=1;
 
    }
    if(flag==1) //1="symbolic factorization"
    {
-      phase=11;
+      mydata->phase = 11;
    }
    if(flag==2) //2="numerical factorization"
    {
-      phase=22;
+      mydata->phase = 22;
+      mydata->iparm[32] = 1; /* compute determinant */
    }
    if(flag==3) //3="Cholesky factorization"
    {
-      phase=12;
-      IPARM(33)=1;  //compute logdet
-
+      mydata->phase = 12;
    }
    if(flag==4) //4="Selected inversion"
    {
-      phase=-22;
+      mydata->phase = -22;
+      mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
+
    }
    if(flag==5) //4="Solve for x"
    {
-      phase=33;
+      mydata->iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
+      mydata->phase = 33;
    }
+
 
 }  
 
@@ -279,43 +309,18 @@ int alex_reordering(pdata_storage mydata, pgraph_t mgraph, int* mypermutation)
     clock_t start, end;
     double cpu_time_used;
 
-    alex_initialization(1); // initialization for reordering
-    pardisoinit (pt,  &mtype, &solver, iparm, dparm, &error); 
-    if (error != 0) 
-    {
-        if (error == -10 )
-           printf("No license file found \n");
-        if (error == -11 )
-           printf("License is expired \n");
-        if (error == -12 )
-           printf("Wrong username or hostname \n");
-         return 1; 
-    }
-    else
-        printf("[PARDISO]: License check was successful ... \n");
-    maxfct = 1;		/* Maximum number of numerical factorizations.  */
-    mnum   = 1;         /* Which factorization to use. */
-    msglvl = 1;         /* Print statistical information  */
-    error  = 0;         /* Initialize error flag */
-    pdata_storage mydata_storage = NULL;
-/* -------------------------------------------------------------------- */
-/* ..  Reordering and Symbolic Factorization.  This step also allocates */
-/*     all memory that is necessary for the factorization.              */
-/* -------------------------------------------------------------------- */
-    phase = 11; //analysis
-    read_sparse_matrix(mydata_storage);
-
-    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
-	     &n, a, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, &ddum, &ddum, &error, dparm);
+    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+	     &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
-    if (error != 0) {
-        printf("\nERROR during symbolic factorization: %d", error);
+    if (mydata->error != 0) {
+        printf("\nERROR during symbolic factorization: %d", mydata->error);
         exit(1);
     }
     printf("\nReordering completed ... ");
-    printf("\nNumber of nonzeros in factors  = %d", iparm[17]);
-    printf("\nNumber of factorization MFLOPS = %d", iparm[18]);
+    printf("\nNumber of nonzeros in factors  = %d", mydata->iparm[17]);
+    printf("\nNumber of factorization MFLOPS = %d", mydata->iparm[18]);
+
   return 0;
 }
 
@@ -323,95 +328,31 @@ int alex_reordering(pdata_storage mydata, pgraph_t mgraph, int* mypermutation)
 
 
 //compute the symbolic factorization, computed just once
-int alex_symbolic_factorization(pdata_storage mystorage)
+int alex_symbolic_factorization(pdata_storage mydata)
 {
-    int      mtype = -2;        /* Real symmetric matrix */
-    //    int      mtype = 1;   /* NOT real symmetric matrix*/      
-    void    *pt[64];     /* Internal solver memory pointer pt,*/
-
-    /* Pardiso control parameters. */
-    int      iparm[64];
-    double   dparm[64];
-    int      maxfct, mnum, phase, error, msglvl, solver;
-    int      num_procs;/* Number of processors. */
-    char    *var;        /* Auxiliary variables. */
-    int      i, k;       /* Auxiliary variables. */
-    double   ddum;              /* Double dummy */
-    int      idum;              /* Integer dummy. */
-    FILE *f5;
-    int anzv=0, j=0, row_index=0, col_index=0;
-/* -------------------------------------------------------------------- */
-/* ..  Setup Pardiso control parameters.                                */
-/* -------------------------------------------------------------------- */
-    error = 0;
-    solver=0;/* use sparse direct solver */
-    //iparm[12]=1;
-    pardisoinit (pt,  &mtype, &solver, iparm, dparm, &error); 
-    if (error != 0) 
-    {
-        if (error == -10 )
-           printf("No license file found \n");
-        if (error == -11 )
-           printf("License is expired \n");
-        if (error == -12 )
-           printf("Wrong username or hostname \n");
-         return 1; 
-    }
-    else
-        printf("[PARDISO]: License check was successful ... \n");
+    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+	     &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
-    /* Numbers of processors, value of OMP_NUM_THREADS */
-    var = getenv("OMP_NUM_THREADS");
-    if(var != NULL)
-        sscanf( var, "%d", &num_procs );
-    else {
-        printf("Set environment OMP_NUM_THREADS to 1");
-        exit(1);
-    }
-    iparm[2]  = num_procs;
-    maxfct = 1;		/* Maximum number of numerical factorizations.  */
-    mnum   = 1;         /* Which factorization to use. */
-    msglvl = 1;         /* Print statistical information  */
-    error  = 0;         /* Initialize error flag */
-   /* -------------------------------------------------------------------- */
-   /* ..  Reordering and Symbolic Factorization.  This step also allocates */
-   /*     all memory that is necessary for the factorization.              */
-   /* -------------------------------------------------------------------- */
-    phase = 11; //analysis
-    read_sparse_matrix();
-    a=mystorage->a;
-    ia = mystorage->ia;
-    ja = mystorage->ja;
-    n = mystorage->n;
-    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
-	     &n, a, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, &ddum, &ddum, &error, dparm);
-    
-    if (error != 0) {
-        printf("\nERROR during symbolic factorization: %d", error);
+    if (mydata->error != 0) {
+        printf("\nERROR during symbolic factorization: %d", mydata->error);
         exit(1);
     }
     printf("\nReordering completed ... ");
-    printf("\nNumber of nonzeros in factors  = %d", iparm[17]);
-    printf("\nNumber of factorization MFLOPS = %d", iparm[18]);
+    printf("\nNumber of nonzeros in factors  = %d", mydata->iparm[17]);
+    printf("\nNumber of factorization MFLOPS = %d", mydata->iparm[18]);
+
   return 0;
 }
 
 //Numerical Cholesky factorization
 int alex_chol(pdata_storage mydata, pINLA_mtx Q)
 {
-   int phase = 22;
-   iparm[32] = 1; /* compute determinant */
-    ini
-   // start = clock();
-    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
-             &n, a, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, &ddum, &ddum, &error,  dparm);
-//  end = clock();
-//  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-//  printf("!!!!!!!!!!!!Numerical factorization took %f seconds to execute \n", cpu_time_used ); 
-    if (error != 0) {
-        printf("\nERROR during numerical factorization: %d", error);
+    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
+    if (mydata->error != 0) {
+        printf("\nERROR during numerical factorization: %d", mydata->error);
         exit(2);
     }
     printf("\nFactorization completed ...\n ");
@@ -422,24 +363,15 @@ int alex_chol(pdata_storage mydata, pINLA_mtx Q)
 
 
 //Solve linear system Lx=b
-int alex_solve_Lx(pdata_storage mydata,  double* b)
+int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x)
 {
 
 /* ..  Back substitution and iterative refinement.                      */
-/* -------------------------------------------------------------------- */    
-    int phase = 33;
-
-    iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
-   
-//    start = clock();
-    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
-             &n, a, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, b, x, &error,  dparm);
-//    end = clock();
-//    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-//    printf("!!!!!!!!!!!!1Back substitution and iterative refinement took %f seconds to execute \n", cpu_time_used );
-    if (error != 0) {
-        printf("\nERROR during solution: %d", error);
+    pardiso ( mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
+    if (mydata->error != 0) {
+        printf("\nERROR during solution: %d", mydata->error);
         exit(3);
     }
 
@@ -456,24 +388,23 @@ int alex_solve_Lx(pdata_storage mydata,  double* b)
 
 
 //Solve linear system L^Tx=b
-int alex_solve_LTx(pdata_storage mydata,  double* b)
+int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
 {
+    clock_t start, end;
+    double cpu_time_used;
+
 /* -------------------------------------------------------------------- */    
 /* ..  Back substitution and iterative refinement.                      */
 /* -------------------------------------------------------------------- */    
-    phase = 33;
-
-    iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
-   
     start = clock();
-    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
-             &n, a, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, b, x, &error,  dparm);
+    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
     printf("!!!!!!!!!!!!1Back substitution and iterative refinement took %f seconds to execute \n", cpu_time_used );
-    if (error != 0) {
-        printf("\nERROR during solution: %d", error);
+    if (mydata->error != 0) {
+        printf("\nERROR during solution: %d", mydata->error);
         exit(3);
     }
 
@@ -538,7 +469,10 @@ int alex_inv(pdata_storage mydata,  pINLA_mtx Q)
 double alex_log_det(data_storage* mydata)
 {
    double logdet=0.0;
-   IPARM(33)=1;  //compute logdet
+
+   pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
 /*
   IPARM (33) — Determinant of a matrix.
   Input
@@ -548,7 +482,9 @@ double alex_log_det(data_storage* mydata)
   On output: The parameter returns the natural logarithm of the determinant of a sparse matrix
   A. The default value of IPARM(33) is 0.
 */
-  return 0;
+
+  mydata->logdet=   mydata->dparam[33];
+  return mydata->dparam[33];
 }
 
 
@@ -618,15 +554,21 @@ int alex_main()
     mydata->solver = solver;
 
     mypermutation = (int*)malloc(n*sizeof(int)) ;
+    x = (double*)malloc(n*sizeof(double)) ;
+    b = (double*)malloc(n*sizeof(double)) ;
     for( j = 0; j < n; j++)
+    {
       mypermutation[j] = j;
+      x[i]=0.0; 
+      b[i]=1.0; 
+    } 
 
 
 
 
     read_sparse_matrix(Q);
     convert_C2F(Q);
-    pardisoinit (pt,  &mtype, &solver, iparm, dparm, &error); 
+
 
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);
@@ -638,7 +580,7 @@ int alex_main()
     alex_clean_mydata(mydata);
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
-    alex_chol(mydata, Q , L);
+    alex_chol(mydata, Q , L);  //also computes log determinant
     alex_clean_mydata(mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"
@@ -649,7 +591,10 @@ int alex_main()
     alex_inv(mydata, Q, Qinv);
     alex_clean_mydata(mydata);
     convert_F2C(Q);
-
+    alex_finalize(mydata);
+    if(x!=NULL) free(x);
+    if(b!=NULL) free(b);
+    
 }
 
 

@@ -19,6 +19,22 @@
 
 #include "graph-matrix-format.h"
 
+/*Sparse matrix structure */
+struct spmatrix{
+   int     n ;
+   int     nia ;
+   int     cols;
+   int     rows;
+   int*    ia;
+   int*    ja;
+   double*  a ;
+   int      nnz;
+   int      logdet;
+};
+typedef struct spmatrix sspmatrix;
+typedef sspmatrix* psspmatrix;
+/*end*/
+
 /*The structure which contains all required data*/
 struct data_storage{
   /* Internal solver memory pointer pt,                  */
@@ -29,6 +45,8 @@ struct data_storage{
   /* Pardiso control parameters. */
   int      iparm[64];
   double   dparm[64];
+  int  mtype;
+  int  nrhs;
 
   int      maxfct;
   int      mnum;
@@ -40,40 +58,27 @@ struct data_storage{
   int nnz;
   int n;
   int* perm;
-  pspmatrix L;
-
   char    *var;        /* Auxiliary variables. */
   int      i, k;       /* Auxiliary variables. */
   double   ddum;              /* Double dummy */
   int      idum;              /* Integer dummy. */
-  pspmatrix Q = NULL;
-  pspmatrix L = NULL;
-//  pspmatrix L = (pspmatrix) malloc(sizeof(sspmatrix));
+  //pspmatrix Q = NULL;
+  //pspmatrix L = NULL;
+  psspmatrix L;
+  psspmatrix Q;
+  psspmatrix Qinv;
+  //psspmatrix Q = (psspmatrix) malloc(sizeof(sspmatrix));
 
 };
 typedef struct data_storage sdata_storage;
 typedef sdata_storage* pdata_storage;
 /*end*/
 
-/*Sparse matrix structure */
-struct spmatrix{
-   int     nia = 0;
-   int     cols = 0;
-   int     rows = 0;
-   int*    ia = NULL;
-   int*    ja = NULL;
-   double*  a = NULL;
-   int      nnz = 0;
-};
-typedef struct spmatrix sspmatrix;
-typedef sspmatrix* pspmatrix;
-/*end*/
-
 
 /* Sparse matrix structure as it is used in INLA*/
 struct INLA_mtx{
-  graph_t * g;
-  Qfunc_t Q;
+  psgraph_t  g;
+  //Qfunc_t Q;
   void *arg;
 };
 typedef struct INLA_mtx sINLA_mtx;
@@ -118,25 +123,26 @@ typedef sINLA_mtx* pINLA_mtx;
 
 
 /* Allocation and initialization of PARDISO variables*/
-void alex_initialization(int flag, pdata_storage mydata);
+int alex_initialization(int flag, pdata_storage mydata);
 
 
-void convert_F2C(pspmatrix Q);
+void convert_F2C(psspmatrix Q);
 
 
-void convert_C2F(pspmatrix Q);
+void convert_C2F(psspmatrix Q);
 
 /* Read sparse matrix in CSR format */
-void read_sparse_matrix( pspmatrix Q);
+void read_sparse_matrix( psspmatrix Q);
 
 // reordering, computed just once
-int alex_reordering(pdata_storage mydata, pgraph_t mgraph, int* mypermutation);
+int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation);
 
 //compute the symbolic factorization, computed just once
 int alex_symbolic_factorization(pdata_storage mydata);
 
 //Numerical Cholesky factorization
-int alex_chol(pdata_storage mydata, pINLA_mtx Q);
+//int alex_chol(pdata_storage mydata, pINLA_mtx Q);
+int alex_chol(pdata_storage mydata, psspmatrix Q, psspmatrix L);
 
 //Solve linear system Lx=b
 int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x);
@@ -147,13 +153,14 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x);
 
 
 //Solve linear system LL^Tx=b
-int alex_solve_LLTx(pdata_storage mydata,  double* b);
+int alex_solve_LLTx(pdata_storage mydata,  double* b,  double* x);
 
 //Computing partial inverse, means solving linear system foer specific RHS
-int alex_inv(pdata_storage mydata,  pINLA_mtx Q);
+//int alex_inv(pdata_storage mydata,  pINLA_mtx Q,  pINLA_mtx Qinv);
+int alex_inv(pdata_storage mydata,  psspmatrix Q,  psspmatrix Qinv);
 
 //Compute log-det
-double alex_log_det(data_storage* mydata);
+double alex_log_det(pdata_storage mydata);
 
 
 //Finalize and deallocate memory
@@ -166,5 +173,7 @@ int alex_finalize(pdata_storage mydata);
 int alex_clean_mydata(pdata_storage  mydata);
 
 /* To test the code run this procedure */
-int alex_main();
+void init_mydata(pdata_storage mydata);
+
+int main();
 #endif

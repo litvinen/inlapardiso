@@ -9,114 +9,23 @@
 /*     indexing and not 0-based C-notation.  */
 /* -------------------------------------------------------------------- */ 
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
-
-
-#include "graph-matrix-format.h"
-
-/*The structure which contains all required data*/
-struct data_storage{
-  /* Internal solver memory pointer pt,                  */
-  /* 32-bit: int pt[64]; 64-bit: long int pt[64]         */
-  /* or void *pt[64] should be OK on both architectures  */ 
-  void    *pt[64]; 
-
-  /* Pardiso control parameters. */
-  int      iparm[64];
-  double   dparm[64];
-
-  int      maxfct;
-  int      mnum;
-  int      phase;
-  int      error;
-  int      msglvl;
-  int      solver;
-  int      num_procs;   /* Number of processors. */
-  int nnz;
-  int n;
-  int* perm;
-  pspmatrix L;
-
-  char    *var;        /* Auxiliary variables. */
-  int      i, k;       /* Auxiliary variables. */
-  double   ddum;              /* Double dummy */
-  int      idum;              /* Integer dummy. */
-  pspmatrix Q = NULL;
-  pspmatrix L = NULL;
-//  pspmatrix L = (pspmatrix) malloc(sizeof(sspmatrix));
-
-};
-typedef struct data_storage sdata_storage;
-typedef sdata_storage* pdata_storage;
-/*end*/
-
-/*Sparse matrix structure */
-struct spmatrix{
-   int     nia = 0;
-   int*    ia = NULL;
-   int*    ja = NULL;
-   double*  a = NULL;
-   int      nnz = 0;
-};
-typedef struct spmatrix sspmatrix;
-typedef sspmatrix* pspmatrix;
-/*end*/
-
-
-/* Sparse matrix structure as it is used in INLA*/
-struct INLA_mtx{
-  graph_t * g;
-  Qfunc_t Q;
-  void *arg;
-};
-typedef struct INLA_mtx sINLA_mtx;
-typedef sINLA_mtx* pINLA_mtx;
-/*end*/
-
-
-
-//struct spvector{
-//  int n;
-//  int* ind;
-//  double* vals;
-//};
-//typedef struct spvector sspvector;
-//typedef sspvector* pspvector;
-
-
-
-//typedef struct {
-//	int n;						       // size
-//	int *nnbs;					       // number of neigbours
-//	int **nbs;					       // list of neighbours
-//} graph_t;
-//typedef struct graph_t sgraph_t;
-//typedef sgraph_t* pgraph_t;
-
-
-/*Coincidence matrix (GRAPH)*/
-//typedef struct coin_matrix scoin_matrix;
-//typedef scoin_matrix* pcoin_matrix;
-
-/*The structure which contains all required data*/
-//struct coin_matrix{
-//  int rows;
-//  int cols;
-//  int* ia;
-//  int* ja;
-//};
-//int*    ia = NULL;
-//int*    ja = NULL;
-//double*  a = NULL;
+*/
+#include "interface.h"
+//#include <boost/iterator/iterator_concepts.hpp>
+//#include <boost/concept_check.hpp>
 
 
 /* Allocation and initialization of PARDISO variables*/
-void alex_initialization(int flag, pdata_storage mydata)
+int alex_initialization(int flag, pdata_storage mydata)
 {
-
+  int num_procs=0;
+  char    *var;
+    
 //flag==-1=="initial/common initialization of PARDISO"
 //flag==0=="reordering"
 //flag==1="symbolic factorization"
@@ -159,7 +68,7 @@ void alex_initialization(int flag, pdata_storage mydata)
 
 
 
-     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->error));
+     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
      if (mydata->error != 0) {
         printf("\nERROR in consistency of matrix: %d", mydata->error);
         exit(1);
@@ -202,18 +111,20 @@ void alex_initialization(int flag, pdata_storage mydata)
       mydata->phase = 33;
    }
 
-
+   return 1;
 }  
 
 
-void convert_F2C(pspmatrix Q)
+void convert_F2C(psspmatrix Q)
 {
 /* -------------------------------------------------------------------- */    
 /* ..  Convert matrix back to 0-based C-notation.                       */
 /* -------------------------------------------------------------------- */ 
    int n=Q->n;
+   int nnz=Q->nnz;
    int i=0;
-    for (i = 0; i < n+1; i++) {
+
+   for (i = 0; i < n+1; i++) {
         Q->ia[i] -= 1;
     }
     for (i = 0; i < nnz; i++) {
@@ -222,13 +133,14 @@ void convert_F2C(pspmatrix Q)
 }
 
 
-void convert_C2F(pspmatrix Q)
+void convert_C2F(psspmatrix Q)
 {
 /* -------------------------------------------------------------------- */
 /* ..  Convert matrix from 0-based C-notation to Fortran 1-based        */
 /*     notation.                                                        */
 /* -------------------------------------------------------------------- */
    int n=Q->n;
+   int nnz=Q->nnz;
    int i=0;
    for (i = 0; i < n+1; i++) 
    {
@@ -241,22 +153,27 @@ void convert_C2F(pspmatrix Q)
 }
 
 /* Read sparse matrix in matlab format */
-void read_sparse_matrix( pspmatrix Q)
+void read_sparse_matrix( psspmatrix Q)
 {
     int    n = 0;
+    int    nnz = 0;
     FILE *f5;
     int anzv=0, j=0, row_index=0, col_index=0;
+    double elem=0.0;
+    double* a=NULL;
+    int* ia=NULL;
+    int* ja=NULL;
     
     f5 = fopen( "ia.txt", "r");
     if( f5 == NULL)
     {
-      printf( "Datei konnte nicht geoeffnet werden\n");
+      printf( "Can't open the file\n");
       exit (1);
     }
     fscanf( f5, "%d\n", &anzv);
     n = anzv-1;
-    Q->ia = n;
-    ia=(int*)malloc((n+1)*sizeof(int));
+    Q->n=n;
+    Q->ia=(int*)malloc((n+1)*sizeof(int));
     for( j = 0; j < anzv; j++)
     {
       fscanf( f5, "%d", &row_index);
@@ -264,10 +181,12 @@ void read_sparse_matrix( pspmatrix Q)
     }
     fclose( f5);
     nnz = ia[n];
+    Q->nnz=nnz;
+
     f5 = fopen( "ja.txt", "r");
     if( f5 == NULL)
     {
-      printf( "Datei konnte nicht geoeffnet werden\n");
+      printf( "Can't open the file\n");
       exit (1);
     }
     fscanf( f5, "%d\n", &anzv); 
@@ -281,7 +200,7 @@ void read_sparse_matrix( pspmatrix Q)
     f5 = fopen( "a.txt", "r");
     if( f5 == NULL)
     {
-      printf( "Datei konnte nicht geoeffnet werden\n");
+      printf( "Can't open the file\n");
       exit (1);
     }
     fscanf( f5, "%d\n", &anzv); 
@@ -294,8 +213,7 @@ void read_sparse_matrix( pspmatrix Q)
     Q->ia = ia;
     Q->ja = ja;
     Q->a  = a;
-    Q->nnz=nnz;
-
+    
     fclose( f5);
 }   
 
@@ -304,13 +222,13 @@ void read_sparse_matrix( pspmatrix Q)
 
 
 // reordering, computed just once
-int alex_reordering(pdata_storage mydata, pgraph_t mgraph, int* mypermutation)
+int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
 {
     clock_t start, end;
     double cpu_time_used;
 
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-	     &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+	     &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
     if (mydata->error != 0) {
@@ -331,7 +249,7 @@ int alex_reordering(pdata_storage mydata, pgraph_t mgraph, int* mypermutation)
 int alex_symbolic_factorization(pdata_storage mydata)
 {
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-	     &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+	     &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
     if (mydata->error != 0) {
@@ -346,10 +264,11 @@ int alex_symbolic_factorization(pdata_storage mydata)
 }
 
 //Numerical Cholesky factorization
-int alex_chol(pdata_storage mydata, pINLA_mtx Q)
+//int alex_chol(pdata_storage mydata, pINLA_mtx Q)
+int alex_chol(pdata_storage mydata, psspmatrix Q, psspmatrix L)
 {
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
     if (mydata->error != 0) {
         printf("\nERROR during numerical factorization: %d", mydata->error);
@@ -368,7 +287,7 @@ int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x)
 
 /* ..  Back substitution and iterative refinement.                      */
     pardiso ( mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
     if (mydata->error != 0) {
         printf("\nERROR during solution: %d", mydata->error);
@@ -392,13 +311,14 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
 {
     clock_t start, end;
     double cpu_time_used;
-
+    int i=0;
+    int n = mydata->n;
 /* -------------------------------------------------------------------- */    
 /* ..  Back substitution and iterative refinement.                      */
 /* -------------------------------------------------------------------- */    
     start = clock();
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -420,58 +340,61 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
 
 
 //Solve linear system LL^Tx=b
-int alex_solve_LLTx(pdata_storage mydata,  double* b)
+int alex_solve_LLTx(pdata_storage mydata,  double* b,  double* x)
 {
-  alex_solve_Lx(mydata,  b);
-  alex_solve_LTx(mydata, b);
+  alex_solve_Lx(mydata,  b, x);
+  alex_solve_LTx(mydata, b, x);
     
   return 0;
 }
 
 //Computing partial inverse, means solving linear system foer specific RHS
-int alex_inv(pdata_storage mydata,  pINLA_mtx Q)
+int alex_inv(pdata_storage mydata,   psspmatrix Q,   psspmatrix Qinv)
 {
   /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
   U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
   the selected inverse elements of A −1 . If IPARM(36) = 1 and PHASE = -22, PARDISO will
   not overwrite these factors. It will instead allocate additional memory of size of the numbers of
   elements in L and U to store these inverse elements.*/
+  int k=0, i=0;
+  double* x;
+  double* b;
+  for (i = 0; i < Q->n; i++) {
+      b[i] = i;
+      x[i] = 0.0;
+  }
 
-
-   if (solver == 0)
-    {
+   if (mydata->solver == 0)
+   {
     	printf("\nCompute Diagonal Elements of the inverse of A ... \n");
-	phase = -22;
-        iparm[35]  = 1; /*  no not overwrite internal factor L */ 
+	    mydata->phase = -22;
+        mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
 
-        start = clock();
+  
+        pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase), &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
 
-        pardiso (pt, &maxfct, &mnum, &mtype, &phase, &n, a, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, b, x, &error,  dparm);
-
-        end = clock();
-        cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
+//        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
  /* print diagonal elements */
-       for (k = 0; k < n; k++)
+       for (k = 0; k < mydata->n; k++)
        {
-            int j = ia[k]-1;      
-            printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, ja[j]-1, a[j]);
+            int j = mydata->Q->ia[k]-1;      
+            printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
        }
 
-    } 
+   } 
 
 
   return 0;
 }
 
 //Compute log-det
-double alex_log_det(data_storage* mydata)
+double alex_log_det(pdata_storage mydata)
 {
    double logdet=0.0;
 
    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->a, mydata->ia, mydata->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
 /*
   IPARM (33) — Determinant of a matrix.
@@ -483,8 +406,8 @@ double alex_log_det(data_storage* mydata)
   A. The default value of IPARM(33) is 0.
 */
 
-  mydata->logdet=   mydata->dparam[33];
-  return mydata->dparam[33];
+  mydata->Q->logdet=   mydata->dparm[33];
+  return mydata->dparm[33];
 }
 
 
@@ -497,9 +420,9 @@ int alex_finalize(pdata_storage mydata)
 {
     int phase = -1;                 /* Release internal memory. */
     
-    pardiso (pt, &maxfct, &mnum, &mtype, &phase,
-             &n, &ddum, ia, ja, &idum, &nrhs,
-             iparm, &msglvl, &ddum, &ddum, &error,  dparm);
+    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+             &(mydata->n), &(mydata->ddum), mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
 
 }
 
@@ -509,17 +432,28 @@ int alex_clean_mydata(pdata_storage  mydata)
 }
 
 
+void init_mydata(pdata_storage mydata)
+{
+    
+   mydata->Q = (psspmatrix) malloc(sizeof(sspmatrix));
+   mydata->L = (psspmatrix) malloc(sizeof(sspmatrix));
+   mydata->Qinv = (psspmatrix) malloc(sizeof(sspmatrix));
+    
+}
+
+
 /* To test the code run this procedure */
-int alex_main()
+int main()
 {
    clock_t start, end;
    double cpu_time_used;
-   pdata_storage mydata;
+   pdata_storage mydata= NULL;
+  
 
    int nnz;
    int n;
    int* perm;
-   pspmatrix L;
+   
    int mtype = -2;        /* Real symmetric matrix */
 
     
@@ -541,18 +475,26 @@ int alex_main()
     int      i, k, j;
     double   ddum;              /* Double dummy */
     int      idum;              /* Integer dummy. */
-    pspmatrix Q = NULL, Qinv=NULL, L=NULL;
-    pgraph_t mgraph = NULL;
+    psspmatrix Q = NULL, Qinv=NULL, L=NULL;
+    psgraph_t mgraph = NULL;
     int* mypermutation = NULL;
 
     solver=0;/* use sparse direct solver */
     mtype=-2;
     nrhs=1;
-
+    mydata= (pdata_storage)malloc(sizeof(sdata_storage ));
+  ;
+printf("flag -11\n");
+    init_mydata(mydata);
+printf("flag 0\n");
+    
     mydata->mtype = mtype;
-    mydata->nrhs = nrhs
+    mydata->nrhs = nrhs;
     mydata->solver = solver;
-
+printf("flag 1\n");
+    read_sparse_matrix(Q);
+printf("flag 2\n");
+    n=Q->n;
     mypermutation = (int*)malloc(n*sizeof(int)) ;
     x = (double*)malloc(n*sizeof(double)) ;
     b = (double*)malloc(n*sizeof(double)) ;
@@ -565,9 +507,8 @@ int alex_main()
 
 
 
-
-    read_sparse_matrix(Q);
     convert_C2F(Q);
+printf("flag 3\n");
 
 
     alex_initialization(0, mydata); //flag==0=="reordering"
@@ -595,6 +536,8 @@ int alex_main()
     if(x!=NULL) free(x);
     if(b!=NULL) free(b);
     
+    
+    return 0;
 }
 
 

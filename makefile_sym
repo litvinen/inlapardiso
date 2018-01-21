@@ -1,0 +1,33 @@
+#Make file for inlapardiso interface
+OBJECTS = mypardiso_sym.o libpardiso500-GNU461-X86-64.so 
+
+#gcc mypardiso_sym.c -g -o mypardiso_sym.exe -L/home/litvina/PARDISO libpardiso500-GNU461-X86-64.so -llapack -#lblas  -lgfortran -fopenmp -lpthread -lm
+
+
+prefix = /home/litvina/PARDISO
+
+exec_prefixH = ${prefixH}
+CFLAGS = -p -O2 -Wall -pedantic
+LDFLAGS = 
+LIBS = -llapack -lblas -lgfortran -lm -fopenmp -lpthread
+CC = gcc
+
+
+projects: mypardiso_sym
+
+clean:
+	rm -f mypardiso_sym
+	rm -f *~ *.ps--
+	rm -f *.o
+	
+#
+# Lanczos procedures
+#
+
+#mypardiso_sym.o: mypardiso_sym.h
+mypardiso_sym.o: mypardiso_sym.c
+	$(CC) $(CFLAGS) -c mypardiso_sym.c -o $@
+
+
+mypardiso_sym: $(OBJECTS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) $(LIBS) -p -o $@

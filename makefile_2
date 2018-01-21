@@ -1,17 +1,18 @@
 #Make file for inlapardiso interface
-OBJECTS = interface.o ../libpardiso500-GNU461-X86-64.so 
+OBJECTS = interface.o
 
 #gcc mypardiso_sym.c -g -o mypardiso_sym.exe -L/home/litvina/PARDISO libpardiso500-GNU461-X86-64.so -llapack -#lblas  -lgfortran -fopenmp -lpthread -lm
 
 
+#prefix = /home/litvina/HLIB13
 prefix = /home/litvina/PARDISO/inlapardiso
 
 exec_prefixH = ${prefixH}
-#CFLAGS = -p -O2 -Wall -pedantic
-CFLAGS = -p -O
-LDFLAGS = 
-LIBS =  -llapack -lblas -lgfortran -lm -fopenmp -lpthread
+CFLAGS = -p -O2 -O3 -Wall -pedantic -I ${prefixH}/include/HLib
+LDFLAGS = -L,${exec_prefix}/lib,-R,${exec_prefixH}/lib,-L,${exec_prefixH}/bin
+LIBS = -lhmatrix -llapack -lblas -lgfortran -lm -lgsl -lgslcblas
 CC = gcc
+#-L/home/litvina/hlibpro-2.4/lib -lhpro -llapack -lblas -ltbb -lz -lscotch -lscotcherr -lfftw3 -lm
 
 
 projects: inlapardiso
@@ -21,6 +22,10 @@ clean:
 	rm -f *~ *.ps--
 	rm -f *.o
 	
+#
+# Lanczos procedures
+#
+
 interface.o: interface.h
 interface.o: interface.c
 	$(CC) $(CFLAGS) -c interface.c -o $@

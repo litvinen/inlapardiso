@@ -18,14 +18,15 @@ typedef struct {
 
 
 typedef struct graph_t sgraph_t;
-typedef sgraph_t* pgraph_t;
+typedef sgraph_t* psgraph_t;
 
 
 // this functions returns element Q_ij for i=j or i~j
 typedef double Qfunc_t(int i, int j, void *arg);
 graph_t *read_graph(char *filename);
 int print_graph(graph_t * g);
-int print_Q(graph_t * g, Qfunc_t Q, void *arg);
+//int print_Q(graph_t * g, Qfunc_t Q, void *arg);
+int print_Q(psgraph_t  g,  void *arg);
 double Qdemo(int i, int j, void *arg);
 
 

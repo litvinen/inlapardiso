@@ -172,6 +172,7 @@ void read_sparse_matrix( psspmatrix Q)
     }
     fscanf( f5, "%d\n", &anzv);
     n = anzv-1;
+    printf("n=%d \n", anzv);
     Q->n=n;
     Q->ia=(int*)malloc((n+1)*sizeof(int));
     for( j = 0; j < anzv; j++)
@@ -182,6 +183,7 @@ void read_sparse_matrix( psspmatrix Q)
     fclose( f5);
     nnz = ia[n];
     Q->nnz=nnz;
+    printf("%g \n", nnz);
 
     f5 = fopen( "ja.txt", "r");
     if( f5 == NULL)
@@ -204,6 +206,7 @@ void read_sparse_matrix( psspmatrix Q)
       exit (1);
     }
     fscanf( f5, "%d\n", &anzv); 
+    printf("anzv=%d \n", anzv);
     a=(double*)malloc((anzv+1)*sizeof(double));
     for( j = 0; j < anzv; j++)
     {

@@ -34,8 +34,7 @@ int alex_initialization(int flag, pdata_storage mydata)
 //flag==4="Partial inversion"
   printf("flag= %d \n", flag);
 
-   pardisoinit(mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm,  &(mydata->error)); 
-
+   
    if(flag==-1) //general initialization
     { 
      if (mydata->error != 0) 
@@ -68,15 +67,12 @@ int alex_initialization(int flag, pdata_storage mydata)
      mydata->error  = 0;         /* Initialize error flag */
 
 
-     printf("mydata->n= %d \n", mydata->Q->n);
      pardiso_chkmatrix  (&(mydata->mtype), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
      if (mydata->error != 0) {
         printf("\nERROR in consistency of matrix: %d", mydata->error);
         exit(1);
      }
    
-     printf("Done mydata->n= %d \n", mydata->Q->n);
-
 
    if(flag==0) //0="reordering"
    {
@@ -111,6 +107,7 @@ int alex_initialization(int flag, pdata_storage mydata)
    {
       mydata->iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
       mydata->phase = 33;
+
    }
 
    return 1;
@@ -225,7 +222,7 @@ void read_sparse_matrix( psspmatrix Q)
 
 
 
-// reordering, computed just once
+// reordering and symbolic fact., computed just once
 int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
 {
     clock_t start, end;
@@ -252,7 +249,7 @@ int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
 //compute the symbolic factorization, computed just once
 int alex_symbolic_factorization(pdata_storage mydata)
 {
-    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+    /*pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
 	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
@@ -263,7 +260,7 @@ int alex_symbolic_factorization(pdata_storage mydata)
     printf("\nReordering completed ... ");
     printf("\nNumber of nonzeros in factors  = %d", mydata->iparm[17]);
     printf("\nNumber of factorization MFLOPS = %d", mydata->iparm[18]);
-
+*/
   return 0;
 }
 
@@ -298,11 +295,7 @@ int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x)
         exit(3);
     }
 
-    printf("\nSolve completed ... ");
-    printf("\nThe solution of the system is: ");
-//    for (i = 0; i < n; i++) {
-//        printf("\n x [%d] = % f", i, x[i] );
-//    }
+    printf("\nSolve Lx=b completed ... ");
     printf ("\n\n");
 
 
@@ -316,11 +309,11 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
     clock_t start, end;
     double cpu_time_used;
     int i=0;
-    int n = mydata->Q->n;
+    
 /* -------------------------------------------------------------------- */    
 /* ..  Back substitution and iterative refinement.                      */
 /* -------------------------------------------------------------------- */    
-    start = clock();
+   /* start = clock();
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
@@ -331,10 +324,10 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
         printf("\nERROR during solution: %d", mydata->error);
         exit(3);
     }
-
-    printf("\nSolve completed ... ");
+*/
+    printf("\nSolve L^Tx=b is also completed ... ");
     printf("\nThe solution of the system is: ");
-    for (i = 0; i < n; i++) {
+    for (i = 0; i < mydata->Q->n; i++) {
 //        printf("\n x [%d] = % f", i, x[i] );
     }
     printf ("\n\n");
@@ -363,7 +356,10 @@ int alex_inv(pdata_storage mydata,   psspmatrix Q,   psspmatrix Qinv)
   int k=0, i=0;
   double* x;
   double* b;
-  for (i = 0; i < Q->n; i++) {
+  x = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
+  b = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
+    
+  for (i = 0; i < mydata->Q->nnz; i++) {
       b[i] = i;
       x[i] = 0.0;
   }
@@ -380,10 +376,10 @@ int alex_inv(pdata_storage mydata,   psspmatrix Q,   psspmatrix Qinv)
 
 //        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
  /* print diagonal elements */
-       for (k = 0; k < mydata->Q->n; k++)
+       for (k = mydata->Q->n-10; k < mydata->Q->n; k++)
        {
             int j = mydata->Q->ia[k]-1;      
-            printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
+            printf ("Last 10 elements. Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
        }
 
    } 
@@ -507,27 +503,20 @@ int main()
 
 
     convert_C2F(mydata->Q);
-    printf("flag 3\n");
-
+    pardisoinit(mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm,  &(mydata->error)); 
 
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);
-    printf("flag 4\n");
     alex_clean_mydata(mydata);
-    printf("flag 5\n");
 
     alex_initialization(1, mydata); //flag==1="symbolic factorization"
     alex_initialization(2, mydata); //flag==2="numerical factorization"
     alex_symbolic_factorization(mydata);
-    printf("flag 6\n");
-
+  
     alex_clean_mydata(mydata);
-printf("flag 7\n");
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
     alex_chol(mydata, mydata->Q , mydata->L);  //also computes log determinant
-    printf("flag 8\n");
-
     alex_clean_mydata(mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"

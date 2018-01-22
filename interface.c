@@ -32,12 +32,12 @@ int alex_initialization(int flag, pdata_storage mydata)
 //flag==2="numerical factorization"
 //flag==3="Cholesky factorization"
 //flag==4="Partial inversion"
+  printf("flag= %d \n", flag);
 
+   pardisoinit(mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm,  &(mydata->error)); 
 
    if(flag==-1) //general initialization
-   { 
-     pardisoinit (mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm, 
-        &(mydata->error)); 
+    { 
      if (mydata->error != 0) 
      {
         if (mydata->error == -10 )
@@ -50,8 +50,9 @@ int alex_initialization(int flag, pdata_storage mydata)
      }
      else
         printf("[PARDISO]: License check was successful ... \n");
-    
+    }
      /* Numbers of processors, value of OMP_NUM_THREADS */
+   
      var = getenv("OMP_NUM_THREADS");
      if(var != NULL)
         sscanf( var, "%d", &num_procs );
@@ -67,13 +68,14 @@ int alex_initialization(int flag, pdata_storage mydata)
      mydata->error  = 0;         /* Initialize error flag */
 
 
-
-     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
+     printf("mydata->n= %d \n", mydata->Q->n);
+     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
      if (mydata->error != 0) {
         printf("\nERROR in consistency of matrix: %d", mydata->error);
         exit(1);
      }
-   }
+   
+     printf("Done mydata->n= %d \n", mydata->Q->n);
 
 
    if(flag==0) //0="reordering"
@@ -178,13 +180,11 @@ void read_sparse_matrix( psspmatrix Q)
     for( j = 0; j < anzv; j++)
     {
       fscanf( f5, "%d", &row_index);
-      ia[j] = row_index; 
+      //printf("row_index=%d \n", row_index);
+      Q->ia[j] = row_index; 
     }
     fclose( f5);
-    nnz = ia[n];
-    Q->nnz=nnz;
-    printf("%g \n", nnz);
-
+    
     f5 = fopen( "ja.txt", "r");
     if( f5 == NULL)
     {
@@ -192,11 +192,12 @@ void read_sparse_matrix( psspmatrix Q)
       exit (1);
     }
     fscanf( f5, "%d\n", &anzv); 
-    ja=(int*)malloc((anzv+1)*sizeof(int));
+    Q->nnz=anzv;
+    Q->ja=(int*)malloc((anzv+1)*sizeof(int));
     for( j = 0; j < anzv; j++)
     {
       fscanf( f5, "%d", &col_index);
-      ja[j] = col_index; 
+      Q->ja[j] = col_index; 
     }
     fclose( f5);
     f5 = fopen( "a.txt", "r");
@@ -207,15 +208,15 @@ void read_sparse_matrix( psspmatrix Q)
     }
     fscanf( f5, "%d\n", &anzv); 
     printf("anzv=%d \n", anzv);
-    a=(double*)malloc((anzv+1)*sizeof(double));
+    Q->a=(double*)malloc((anzv+1)*sizeof(double));
     for( j = 0; j < anzv; j++)
     {
       fscanf( f5, "%lf", &elem);
-      a[j] = elem; 
+      Q->a[j] = elem; 
     }
-    Q->ia = ia;
-    Q->ja = ja;
-    Q->a  = a;
+    //Q->ia = ia;
+    //Q->ja = ja;
+    //Q->a  = a;
     
     fclose( f5);
 }   
@@ -231,7 +232,7 @@ int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
     double cpu_time_used;
 
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-	     &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
     if (mydata->error != 0) {
@@ -252,7 +253,7 @@ int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
 int alex_symbolic_factorization(pdata_storage mydata)
 {
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-	     &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
     if (mydata->error != 0) {
@@ -271,7 +272,7 @@ int alex_symbolic_factorization(pdata_storage mydata)
 int alex_chol(pdata_storage mydata, psspmatrix Q, psspmatrix L)
 {
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
     if (mydata->error != 0) {
         printf("\nERROR during numerical factorization: %d", mydata->error);
@@ -290,7 +291,7 @@ int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x)
 
 /* ..  Back substitution and iterative refinement.                      */
     pardiso ( mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
     if (mydata->error != 0) {
         printf("\nERROR during solution: %d", mydata->error);
@@ -315,13 +316,13 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
     clock_t start, end;
     double cpu_time_used;
     int i=0;
-    int n = mydata->n;
+    int n = mydata->Q->n;
 /* -------------------------------------------------------------------- */    
 /* ..  Back substitution and iterative refinement.                      */
 /* -------------------------------------------------------------------- */    
     start = clock();
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -374,12 +375,12 @@ int alex_inv(pdata_storage mydata,   psspmatrix Q,   psspmatrix Qinv)
         mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
 
   
-        pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase), &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+        pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
 
 //        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
  /* print diagonal elements */
-       for (k = 0; k < mydata->n; k++)
+       for (k = 0; k < mydata->Q->n; k++)
        {
             int j = mydata->Q->ia[k]-1;      
             printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
@@ -397,7 +398,7 @@ double alex_log_det(pdata_storage mydata)
    double logdet=0.0;
 
    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
 /*
   IPARM (33) — Determinant of a matrix.
@@ -424,7 +425,7 @@ int alex_finalize(pdata_storage mydata)
     int phase = -1;                 /* Release internal memory. */
     
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->n), &(mydata->ddum), mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->Q->n), &(mydata->ddum), mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
 
 }
@@ -486,45 +487,47 @@ int main()
     mtype=-2;
     nrhs=1;
     mydata= (pdata_storage)malloc(sizeof(sdata_storage ));
-  ;
-printf("flag -11\n");
+  
     init_mydata(mydata);
-printf("flag 0\n");
     
     mydata->mtype = mtype;
     mydata->nrhs = nrhs;
     mydata->solver = solver;
-printf("flag 1\n");
-    read_sparse_matrix(Q);
-printf("flag 2\n");
-    n=Q->n;
-    mypermutation = (int*)malloc(n*sizeof(int)) ;
-    x = (double*)malloc(n*sizeof(double)) ;
-    b = (double*)malloc(n*sizeof(double)) ;
-    for( j = 0; j < n; j++)
+    read_sparse_matrix(mydata->Q);
+    mypermutation = (int*)malloc( mydata->Q->nnz*sizeof(int)) ;
+    x = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
+    b = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
+    for( j = 0; j < mydata->Q->nnz; j++)
     {
       mypermutation[j] = j;
       x[i]=0.0; 
       b[i]=1.0; 
     } 
+   
 
 
-
-    convert_C2F(Q);
-printf("flag 3\n");
+    convert_C2F(mydata->Q);
+    printf("flag 3\n");
 
 
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);
+    printf("flag 4\n");
     alex_clean_mydata(mydata);
+    printf("flag 5\n");
 
     alex_initialization(1, mydata); //flag==1="symbolic factorization"
     alex_initialization(2, mydata); //flag==2="numerical factorization"
     alex_symbolic_factorization(mydata);
+    printf("flag 6\n");
+
     alex_clean_mydata(mydata);
+printf("flag 7\n");
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
-    alex_chol(mydata, Q , L);  //also computes log determinant
+    alex_chol(mydata, mydata->Q , mydata->L);  //also computes log determinant
+    printf("flag 8\n");
+
     alex_clean_mydata(mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"

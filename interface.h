@@ -55,8 +55,8 @@ struct data_storage{
   int      msglvl;
   int      solver;
   int      num_procs;   /* Number of processors. */
-  int nnz;
-  int n;
+  //int nnz; to Q
+  //int n; to Q
   int* perm;
   char    *var;        /* Auxiliary variables. */
   int      i, k;       /* Auxiliary variables. */

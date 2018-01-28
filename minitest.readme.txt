@@ -1,0 +1,12 @@
+This example contains a small matrix in CRS sparse data format, taken from
+https://en.wikipedia.org/wiki/Sparse_matrix
+CRS matrix with row-major order is
+     0 0 0 0
+     5 8 0 0
+     0 0 3 0
+     0 6 0 0
+where
+     A= [5 8 3 6]
+     IA=[0 0 2 3 4]
+     JA=[0 1 2 1]
+    

@@ -72,7 +72,7 @@ int print_Q(graph_t * g, Qfunc_t Q, void *arg)
 		// note that the diagonal are not neibours...
 		printf("Q(%1d, %1d) = %g\n", i, i, Q(i, i, arg));
 		for (jj = 0; jj < g->nnbs[i]; jj++) {
-			j = g->nbs[i][jj];
+            j = g->nbs[i][jj];
 			printf("\tQ(%1d, %1d) = %g\n", i, j, Q(i, j, arg));
 		}
 	}
@@ -81,9 +81,9 @@ int print_Q(graph_t * g, Qfunc_t Q, void *arg)
 
 double Qdemo(int i, int j, void *arg)
 {
-	// an example of a ``matrix''
-	graph_t *g = (graph_t *) arg;
-	return (i == j ? g->nnbs[i] + 1 : -1);
+    // an example of a ``matrix''
+    graph_t *g = (graph_t *) arg;
+    return (i == j ? g->nnbs[i] + 1 : -1);
 }
 
 
@@ -99,34 +99,67 @@ struct spmatrix{
    int      nnz;
    int      logdet;
 };*/
-void convert2CSR(graph_t * g, psspmatrix S)
+void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
 {
   int n = 0, nnz=0;
-  int i, j;
+  int i, jj, j;
   int k = 0;
   
   printf("rows = %d, cols = %d\n", g->n, g->n);
   for (i = 0; i < g->n; i++) 
      nnz=nnz + g->nnbs[i];
+  
   S->nnz = nnz;
   S->n = g->n; 
+  S->rows = g->n; 
   S->a = (double*)malloc(nnz * sizeof(double));
   S->ja =(int*)malloc(nnz*sizeof(int));
   S->ia=(int*)malloc(g->n*sizeof(int));
   S->ia[0]=0;
   
-  for( k = 0; k < g->n; k++)
+  for( k = 1; k <= g->n; k++)
   {
-      S->ia[k+1] = S->ia[k] + g->nnbs[k]; 
+      S->ia[k] = S->ia[k-1] + g->nnbs[k-1]; 
   }
+  for (i = 0; i < g->n; i++) {
+    for (jj = 0; jj < g->nnbs[i]; jj++)
+    {    
+        j = g->nbs[i][jj]-1;
+        S->a[k] = Q(i, j, arg);
+        k++;
+    }
+  }
+ // S->a[0]=5; /*Delete these three lines*/
+ // S->a[1]=8; 
+ // S->a[2]=3; 
+ // S->a[3]=6; 
+  k=0;
   for (i = 0; i < g->n; i++) {
     for (j = 0; j < g->nnbs[i]; j++)
     {    
-        S->a[k] = g->nbs[i][j];
+        S->ja[k] = g->nbs[i][j]-1;
         k++;
     }
   }
   
+}
+
+void print_CSR(psspmatrix S)
+{
+    int k=0;
+    printf("Array A: \n"); 
+    for( k = 0; k < S->nnz; k++)
+       printf("%3.3g, ", S->a[k]); 
+    printf(" \n"); 
+    for( k = 0; k <= S->rows; k++)
+       printf("%d, ", S->ia[k]); 
+    printf(" \n"); 
+    for( k = 0; k < S->nnz; k++)
+       printf("%d, ", S->ja[k]); 
+    printf(" \n"); 
+  
+    
+    
 }
 
 int main(int argc, char **argv)
@@ -135,10 +168,24 @@ int main(int argc, char **argv)
     psspmatrix S;
     S=(psspmatrix )malloc(sizeof(sspmatrix ));
     
-	g = read_graph("germany.graph.txt");
-	print_graph(g);
+    g = read_graph("germany.graph.txt");
+    //g = read_graph("minitest.graph.txt");
+    /* CRS matrix is
+     0 0 0 0
+     5 8 0 0
+     0 0 3 0
+     0 6 0 0
+     */
+    print_graph(g);
 	print_Q(g, Qdemo, (void *) g);
-    convert2CSR(g,  S);
+    convert2CSR(S, g, Qdemo, (void *) g);
+    print_CSR(S);
+    /*
+     should obtain
+     A= [5 8 3 6]
+     IA=[0 0 2 3 4]
+     JA=[0 1 2 1]
+     */
     
 	return (0);
 }

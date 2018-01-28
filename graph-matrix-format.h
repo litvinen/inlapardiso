@@ -46,5 +46,8 @@ int print_graph(graph_t * g);
 double Qdemo(int i, int j, void *arg);
 int print_Q(graph_t * g, Qfunc_t Q, void *arg);
 //void convert2CSR(graph_t * g, psspmatrix S);
+void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg);
+
+void print_CSR(psspmatrix S);
 
 #endif

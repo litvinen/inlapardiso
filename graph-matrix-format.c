@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
+//#include <boost/concept_check.hpp>
 #include "graph-matrix-format.h"
+
 
 // this example shows the internal graph structure and the function defining the matrix.
 
@@ -84,13 +86,59 @@ double Qdemo(int i, int j, void *arg)
 	return (i == j ? g->nnbs[i] + 1 : -1);
 }
 
+
+/*
+struct spmatrix{
+   int     n ;
+   int     nia ;
+   int     cols;
+   int     rows;
+   int*    ia;
+   int*    ja;
+   double*  a ;
+   int      nnz;
+   int      logdet;
+};*/
+void convert2CSR(graph_t * g, psspmatrix S)
+{
+  int n = 0, nnz=0;
+  int i, j;
+  int k = 0;
+  
+  printf("rows = %d, cols = %d\n", g->n, g->n);
+  for (i = 0; i < g->n; i++) 
+     nnz=nnz + g->nnbs[i];
+  S->nnz = nnz;
+  S->n = g->n; 
+  S->a = (double*)malloc(nnz * sizeof(double));
+  S->ja =(int*)malloc(nnz*sizeof(int));
+  S->ia=(int*)malloc(g->n*sizeof(int));
+  S->ia[0]=0;
+  
+  for( k = 0; k < g->n; k++)
+  {
+      S->ia[k+1] = S->ia[k] + g->nnbs[k]; 
+  }
+  for (i = 0; i < g->n; i++) {
+    for (j = 0; j < g->nnbs[i]; j++)
+    {    
+        S->a[k] = g->nbs[i][j];
+        k++;
+    }
+  }
+  
+}
+
 int main(int argc, char **argv)
 {
 	graph_t *g;
-
+    psspmatrix S;
+    S=(psspmatrix )malloc(sizeof(sspmatrix ));
+    
 	g = read_graph("germany.graph.txt");
 	print_graph(g);
 	print_Q(g, Qdemo, (void *) g);
-
+    convert2CSR(g,  S);
+    
 	return (0);
 }

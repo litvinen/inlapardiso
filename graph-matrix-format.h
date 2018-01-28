@@ -8,6 +8,23 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
+/*Sparse matrix structure */
+
+struct spmatrix{
+   int     n ;
+   int     nia ;
+   int     cols;
+   int     rows;
+   int*    ia;
+   int*    ja;
+   double*  a ;
+   int      nnz;
+   int      logdet;
+};
+typedef struct spmatrix sspmatrix;
+typedef sspmatrix* psspmatrix;
+
+
 
 // the full binary matrix is stored here
 typedef struct {
@@ -26,8 +43,8 @@ typedef double Qfunc_t(int i, int j, void *arg);
 graph_t *read_graph(char *filename);
 int print_graph(graph_t * g);
 //int print_Q(graph_t * g, Qfunc_t Q, void *arg);
-int print_Q(psgraph_t  g,  void *arg);
 double Qdemo(int i, int j, void *arg);
-
+int print_Q(graph_t * g, Qfunc_t Q, void *arg);
+//void convert2CSR(graph_t * g, psspmatrix S);
 
 #endif

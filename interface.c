@@ -79,34 +79,35 @@ int alex_initialization(int flag, pdata_storage mydata)
      /* -------------------------------------------------------------------- */
      /* ..  Setup Pardiso control parameters.                                */
      /* -------------------------------------------------------------------- */
-      mydata->phase = 11; 
+      mydata->phase = 11; // analysis
       mydata->error = 0;
+      iparm[5] = 1; //set to 1 if you want to provide your own permutation array
     //iparm[12]=1;
 
    }
    if(flag==1) //1="symbolic factorization"
    {
-      mydata->phase = 11;
+      mydata->phase = 11; // analysis
    }
    if(flag==2) //2="numerical factorization"
    {
-      mydata->phase = 22;
+      mydata->phase = 22; //Numerical factorization
       mydata->iparm[32] = 1; /* compute determinant */
    }
    if(flag==3) //3="Cholesky factorization"
    {
-      mydata->phase = 12;
+      mydata->phase = 12; // Analysis, numerical factorization
    }
    if(flag==4) //4="Selected inversion"
    {
-      mydata->phase = -22;
+      mydata->phase = -22; //Selected inversion
       mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
 
    }
    if(flag==5) //4="Solve for x"
    {
       mydata->iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
-      mydata->phase = 33;
+      mydata->phase = 33;  //solve
 
    }
 
@@ -249,6 +250,7 @@ int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
 //compute the symbolic factorization, computed just once
 int alex_symbolic_factorization(pdata_storage mydata)
 {
+   
     /*pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
 	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);

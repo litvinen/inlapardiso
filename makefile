@@ -8,8 +8,8 @@ prefix = /home/litvina/PARDISO/inlapardiso
 
 exec_prefixH = ${prefixH}
 #CFLAGS = -p -O2 -Wall -pedantic
-CFLAGS = -p -O
-LDFLAGS = 
+CFLAGS = -pg
+LDFLAGS =  
 LIBS =  -llapack -lblas -lgfortran -lm -fopenmp -lpthread
 CC = gcc
 
@@ -27,4 +27,4 @@ interface.o: interface.c
 
 
 inlapardiso: $(OBJECTS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) $(LIBS) -p -o $@
+	$(CC) $(CFLAGS)  $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@

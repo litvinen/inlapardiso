@@ -16,8 +16,16 @@
 #include <math.h>
 #include <time.h>
 
+// the full binary matrix is stored here
+typedef struct {
+    int n;                             // size
+    int *nnbs;                         // number of neigbours
+    int **nbs;                         // list of neighbours
+} graph_t;
 
-#include "graph-matrix-format.h"
+
+typedef struct graph_t sgraph_t;
+typedef sgraph_t* psgraph_t;
 
 /*Sparse matrix structure */
 struct spmatrix{
@@ -34,6 +42,20 @@ struct spmatrix{
 typedef struct spmatrix sspmatrix;
 typedef sspmatrix* psspmatrix;
 /*end*/
+
+// this functions returns element Q_ij for i=j or i~j
+typedef double Qfunc_t(int i, int j, void *arg);
+graph_t *read_graph(char *filename);
+int print_graph(graph_t * g);
+//int print_Q(graph_t * g, Qfunc_t Q, void *arg);
+double Qdemo(int i, int j, void *arg);
+int print_Q(graph_t * g, Qfunc_t Q, void *arg);
+//void convert2CSR(graph_t * g, psspmatrix S);
+void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg);
+void convert2CSR_alex(psspmatrix S, graph_t * g, double* values);
+void print_CSR(psspmatrix S);
+
+
 
 /*The structure which contains all required data*/
 struct data_storage{
@@ -175,5 +197,7 @@ int alex_clean_mydata(pdata_storage  mydata);
 /* To test the code run this procedure */
 void init_mydata(pdata_storage mydata);
 
+/*Read sparse matrix, convert it, tests*/
+int test_conversion();
 int main();
 #endif

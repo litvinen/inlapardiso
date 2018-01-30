@@ -52,7 +52,7 @@ double Qdemo(int i, int j, void *arg);
 int print_Q(graph_t * g, Qfunc_t Q, void *arg);
 //void convert2CSR(graph_t * g, psspmatrix S);
 void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg);
-void convert2CSR_alex(psspmatrix S, graph_t * g, double* values);
+void convert2CSR_alex(psspmatrix S, graph_t * g);
 void print_CSR(psspmatrix S);
 
 
@@ -183,6 +183,12 @@ int alex_inv(pdata_storage mydata,  psspmatrix Q,  psspmatrix Qinv);
 
 //Compute log-det
 double alex_log_det(pdata_storage mydata);
+
+/*Restore pardiso internal structures from a file*/
+void alex_pardiso_restore(pdata_storage mydata, char *filename);
+
+/*Store internal structures from pardiso to a file*/
+void alex_pardiso_store(pdata_storage mydata, char *filename);
 
 
 //Finalize and deallocate memory

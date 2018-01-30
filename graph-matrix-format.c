@@ -4,8 +4,9 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
-//#include <boost/concept_check.hpp>
 #include "graph-matrix-format.h"
+//#include <boost/concept_check.hpp>
+
 
 
 // this example shows the internal graph structure and the function defining the matrix.
@@ -87,18 +88,8 @@ double Qdemo(int i, int j, void *arg)
 }
 
 
-/*
-struct spmatrix{
-   int     n ;
-   int     nia ;
-   int     cols;
-   int     rows;
-   int*    ia;
-   int*    ja;
-   double*  a ;
-   int      nnz;
-   int      logdet;
-};*/
+
+
 void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
 {
   int n = 0, nnz=0;
@@ -129,10 +120,7 @@ void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
         k++;
     }
   }
- // S->a[0]=5; /*Delete these three lines*/
- // S->a[1]=8; 
- // S->a[2]=3; 
- // S->a[3]=6; 
+
   k=0;
   for (i = 0; i < g->n; i++) {
     for (j = 0; j < g->nnbs[i]; j++)
@@ -144,6 +132,40 @@ void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
   
 }
 
+
+void convert2CSR_alex(psspmatrix S, graph_t * g, double* values)
+{
+  int n = 0, nnz=0;
+  int i, jj, j;
+  int k = 0;
+  
+  printf("rows = %d, cols = %d\n", g->n, g->n);
+  for (i = 0; i < g->n; i++) 
+     nnz=nnz + g->nnbs[i];
+  
+  S->nnz = nnz;
+  S->n = g->n; 
+  S->rows = g->n; 
+  S->a = (double*)malloc(nnz * sizeof(double));
+  S->ja =(int*)malloc(nnz*sizeof(int));
+  S->ia=(int*)malloc(g->n*sizeof(int));
+  S->ia[0]=0;
+  
+  for( k = 1; k <= g->n; k++)
+     S->ia[k] = S->ia[k-1] + g->nnbs[k-1]; 
+  for (i = 0; i < S->nnz; i++) 
+     S->a[i] = values[i];
+  
+  k=0;
+  for (i = 0; i < g->n; i++) {
+    for (j = 0; j < g->nnbs[i]; j++)
+    {    
+        S->ja[k] = g->nbs[i][j]-1;
+        k++;
+    }
+  }
+  
+}
 void print_CSR(psspmatrix S)
 {
     int k=0;
@@ -158,18 +180,23 @@ void print_CSR(psspmatrix S)
        printf("%d, ", S->ja[k]); 
     printf(" \n"); 
   
-    
-    
 }
 
 int main(int argc, char **argv)
 {
 	graph_t *g;
     psspmatrix S;
-    S=(psspmatrix )malloc(sizeof(sspmatrix ));
+    double* v;
     
+    v=(double* )malloc(4*sizeof(double));
+    v[0]=5;
+    v[1]=8;
+    v[2]=3;
+    v[3]=6;
+    
+    S=(psspmatrix )malloc(sizeof(sspmatrix ));
     g = read_graph("germany.graph.txt");
-    //g = read_graph("minitest.graph.txt");
+   // g = read_graph("minitest.graph.txt");
     /* CRS matrix is
      0 0 0 0
      5 8 0 0
@@ -179,6 +206,7 @@ int main(int argc, char **argv)
     print_graph(g);
 	print_Q(g, Qdemo, (void *) g);
     convert2CSR(S, g, Qdemo, (void *) g);
+//    convert2CSR_alex(S, g, v);
     print_CSR(S);
     /*
      should obtain

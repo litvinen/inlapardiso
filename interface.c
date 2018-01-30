@@ -40,6 +40,7 @@ graph_t *read_graph(char *filename)
         }
     }
 #undef READ_INT
+    fclose(fp);
     return (g);
 }
 
@@ -80,7 +81,8 @@ double Qdemo(int i, int j, void *arg)
 
 
 
-
+/*convert graph representatio into CRS, 
+ Note: graph model doesnt containdiagonal!*/
 void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
 {
   int n = 0, nnz=0;
@@ -90,7 +92,7 @@ void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
   printf("rows = %d, cols = %d\n", g->n, g->n);
   for (i = 0; i < g->n; i++) 
      nnz=nnz + g->nnbs[i];
-  
+
   S->nnz = nnz;
   S->n = g->n; 
   S->rows = g->n; 
@@ -124,7 +126,7 @@ void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
 }
 
 
-void convert2CSR_alex(psspmatrix S, graph_t * g, double* values)
+void convert2CSR_withdiag(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
 {
   int n = 0, nnz=0;
   int i, jj, j;
@@ -133,7 +135,57 @@ void convert2CSR_alex(psspmatrix S, graph_t * g, double* values)
   printf("rows = %d, cols = %d\n", g->n, g->n);
   for (i = 0; i < g->n; i++) 
      nnz=nnz + g->nnbs[i];
+  nnz = nnz + g->n;  // added number of diagonal elements, which are not in the graph
+  S->nnz = nnz;
+  S->n = g->n; 
+  S->rows = g->n; 
+  S->a = (double*)malloc(nnz * sizeof(double));
+  S->ja =(int*)malloc(nnz*sizeof(int));
+  S->ia=(int*)malloc(g->n*sizeof(int));
+  S->ia[0]=0;
   
+  for( k = 1; k <= g->n; k++)
+  {
+      S->ia[k] = S->ia[k-1] + g->nnbs[k-1]+1; 
+  }
+  for (i = 0; i < g->n; i++) {
+    for (jj = 0; jj <= g->nnbs[i]; jj++)
+    {    
+        j = g->nbs[i][jj]-1;
+        S->a[k] = Q(i, j, arg);
+        k++;
+    }
+  }
+
+  k=0;
+  for (i = 0; i < g->n; i++) {
+    for (j = 0; j <= g->nnbs[i]; j++)
+    {    
+        S->ja[k] = g->nbs[i][j]-1;
+        k++;
+    }
+  }
+  
+}
+
+
+
+void convert2CSR_alex(psspmatrix S, graph_t * g)
+{
+  int n = 0, nnz=0;
+  int i, jj, j;
+  int k = 0;
+  double* values;
+  
+  printf("rows = %d, cols = %d\n", g->n, g->n);
+  for (i = 0; i < g->n; i++) 
+     nnz=nnz + g->nnbs[i];
+  
+  
+  values=(double* )malloc(nnz*sizeof(double));
+  for (i = 0; i < nnz; i++) 
+    values[i] = 0.1*i;
+    
   S->nnz = nnz;
   S->n = g->n; 
   S->rows = g->n; 
@@ -151,22 +203,69 @@ void convert2CSR_alex(psspmatrix S, graph_t * g, double* values)
   for (i = 0; i < g->n; i++) {
     for (j = 0; j < g->nnbs[i]; j++)
     {    
-        S->ja[k] = g->nbs[i][j]-1;
+        S->ja[k] = g->nbs[i][j];
         k++;
     }
   }
   
 }
+
+/*convert graph representation from INLA into CRS and add a diagonal (contains in *diag), 
+ Note: diagonal is added!*/
+void convert2CSR_alex_diag(psspmatrix S, graph_t * g, double* diag)
+{
+  int n = 0, nnz=0;
+  int i, jj, j;
+  int k = 0;
+  
+  printf("rows = %d, cols = %d\n", g->n, g->n);
+  for (i = 0; i < g->n; i++) 
+     nnz=nnz + g->nnbs[i];
+  
+  nnz=nnz+g->n;
+  
+  S->nnz = nnz;
+  S->n = g->n; 
+  S->rows = g->n; 
+  S->a = (double*)malloc(nnz * sizeof(double));
+  S->ja =(int*)malloc(nnz*sizeof(int));
+  S->ia=(int*)malloc(g->n*sizeof(int));
+  S->ia[0]=0;
+  
+  for( k = 1; k <= g->n; k++)
+     S->ia[k] = S->ia[k-1] + g->nnbs[k-1]+1;  //added 1 becouse of diagonal 
+  for (i = 0; i < S->nnz; i++) 
+     S->a[i] = diag[i];
+  
+  k=0;
+  for (i = 0; i < g->n; i++) {
+    for (j = 0; j <= g->nnbs[i]; j++)
+    {    
+        S->ja[k] = g->nbs[i][j];
+        k++;
+    }
+  }
+  
+}
+
+
+void alex_add_diag(graph_t * g, double* diag)
+{
+  /*Nee to modify graph, so that is contains diagonal*/  
+}
+
 void print_CSR(psspmatrix S)
 {
     int k=0;
-    printf("Array A: \n"); 
+    printf("Array a[..]: \n"); 
     for( k = 0; k < S->nnz; k++)
        printf("%3.3g, ", S->a[k]); 
     printf(" \n"); 
+    printf("Array ia[..]: \n"); 
     for( k = 0; k <= S->rows; k++)
        printf("%d, ", S->ia[k]); 
     printf(" \n"); 
+    printf("Array ja[..]: \n"); 
     for( k = 0; k < S->nnz; k++)
        printf("%d, ", S->ja[k]); 
     printf(" \n"); 
@@ -234,7 +333,7 @@ int alex_initialization(int flag, pdata_storage mydata)
      /* -------------------------------------------------------------------- */
       mydata->phase = 11; // analysis
       mydata->error = 0;
-      mydata->iparm[5] = 1; //set to 1 if you want to provide your own permutation array
+      mydata->iparm[5] = 0; //set to 1 if you want to provide your own permutation array
     //mydata->iparm[12]=1;
 
    }
@@ -602,27 +701,23 @@ int test_conversion()
 {
     graph_t *g;
     psspmatrix S;
-    double* v;
-    
-    v=(double* )malloc(4*sizeof(double));
-    v[0]=5;
-    v[1]=8;
-    v[2]=3;
-    v[3]=6;
-    
+  
     S=(psspmatrix )malloc(sizeof(sspmatrix ));
-    g = read_graph("germany.graph.txt");
-   // g = read_graph("minitest.graph.txt");
+    //g = read_graph("germany.graph.txt");
+    //g = read_graph("minitest4.graph.txt");
+    //g = read_graph("minitest2.graph.txt");
+    g = read_graph("minitest3.graph.txt");
     /* CRS matrix is
-     0 0 0 0
+     1 0 0 0
      5 8 0 0
      0 0 3 0
-     0 6 0 0
+     0 6 0 1
      */
     print_graph(g);
-    print_Q(g, Qdemo, (void *) g);
-    convert2CSR(S, g, Qdemo, (void *) g);
-//    convert2CSR_alex(S, g, v);
+   // print_Q(g, Qdemo, (void *) g);
+    //convert2CSR(S, g, Qdemo, (void *) g);
+
+    convert2CSR_alex(S, g);
     print_CSR(S);
     /*
      should obtain
@@ -633,6 +728,44 @@ int test_conversion()
     
     return (0);
 }
+
+/*Restore pardiso internal structures from a file*/
+void alex_pardiso_restore(pdata_storage mydata, char *filename)
+{
+    FILE *fp = fopen(filename, "a");
+    fclose(fp);
+
+    
+}
+
+/*Store internal structures from pardiso to a file*/
+void alex_pardiso_store(pdata_storage mydata, char *filename)
+{
+    FILE *fp = fopen(filename, "r");
+    
+    /*
+      mydata->pt, 
+    mydata->maxfct
+    mydata->mnum
+    mydata->mtype
+    mydata->phase
+    mydata->Q->n
+    mydata->Q->a
+    mydata->Q->ia
+    mydata->Q->ja
+    mydata->idum
+    mydata->nrhs
+    mydata->iparm
+    mydata->msglvl
+    mydata->ddum
+    mydata->ddum 
+    mydata->error
+    mydata->dparm;
+    */
+    fclose(fp);
+}
+
+
 /* To test the code run this procedure */
 int main()
 {
@@ -671,8 +804,13 @@ int main()
     int* mypermutation = NULL;
     graph_t *g;
     
+    
+    
+   // test_conversion();
+
     solver=0;/* use sparse direct solver */
-    mtype=-2;
+    //mtype=-2; // real symmetric 
+    mtype = -2;      
     nrhs=1;
     mydata= (pdata_storage)malloc(sizeof(sdata_storage ));
   
@@ -686,11 +824,14 @@ int main()
     
     
     mydata->Q=(psspmatrix )malloc(sizeof(sspmatrix ));
-    g = read_graph("germany.graph.txt");
+    //g = read_graph("germany.graph.txt");
+    g = read_graph("minitest3.graph.txt");
     print_graph(g);
-    print_Q(g, Qdemo, (void *) g);
-    convert2CSR(mydata->Q, g, Qdemo, (void *) g);
+    convert2CSR_alex(mydata->Q, g);
     print_CSR(mydata->Q);
+
+    // print_Q(g, Qdemo, (void *) g);
+    //convert2CSR_alex_diag(mydata->Q, g, values);
 
     
     

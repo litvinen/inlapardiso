@@ -10,6 +10,8 @@
 #include <stdlib.h>
 /*Sparse matrix structure */
 
+
+/*Sparse matrix structure */
 struct spmatrix{
    int     n ;
    int     nia ;
@@ -23,8 +25,7 @@ struct spmatrix{
 };
 typedef struct spmatrix sspmatrix;
 typedef sspmatrix* psspmatrix;
-
-
+/*end*/
 
 // the full binary matrix is stored here
 typedef struct {
@@ -47,7 +48,7 @@ double Qdemo(int i, int j, void *arg);
 int print_Q(graph_t * g, Qfunc_t Q, void *arg);
 //void convert2CSR(graph_t * g, psspmatrix S);
 void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg);
-
+void convert2CSR_alex(psspmatrix S, graph_t * g, double* values);
 void print_CSR(psspmatrix S);
 
 #endif

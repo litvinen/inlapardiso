@@ -732,7 +732,7 @@ int test_conversion()
 /*Restore pardiso internal structures from a file*/
 void alex_pardiso_restore(pdata_storage mydata, char *filename)
 {
-    FILE *fp = fopen(filename, "a");
+    FILE *fp = fopen(filename, "r");
     fclose(fp);
 
     
@@ -741,7 +741,56 @@ void alex_pardiso_restore(pdata_storage mydata, char *filename)
 /*Store internal structures from pardiso to a file*/
 void alex_pardiso_store(pdata_storage mydata, char *filename)
 {
-    FILE *fp = fopen(filename, "r");
+    FILE *fp = NULL;
+    int i=0;
+    
+    FILE *fp = fopen(filename, "a");
+    for(i=0; i<64; i++)
+       fprintf("%d, ", mydata->iparm[i]);
+    fprintf("\n");
+    for(i=0; i<64; i++)
+       fprintf("%12.12g, ", mydata->dparm[i]);
+    fprintf("\n");
+    fprintf("%d \n",  mydata->mtype);
+    fprintf("%d \n",  mydata->mnum);
+    fprintf("%d \n",  mydata->phase);
+    fprintf("%d \n",  mydata->idum);
+    fprintf("%12.12g \n",  mydata->idum);
+    fprintf("%d \n",  mydata->nrhs);
+    fprintf("%d \n",  mydata->ipart);
+    fprintf("%d \n",  mydata->msglvl);
+    fprintf("%12.12g, \n",  mydata->ddum);
+    fprintf("%d \n",  mydata->error);
+    
+    
+//  void    *pt[64]; 
+  /* Pardiso control parameters. */
+//  int      iparm[64];
+//  double   dparm[64];
+//  int  mtype;
+//  int  nrhs;
+
+//  int      maxfct;
+//  int      mnum;
+//  int      phase;
+//  int      error;
+//  int      msglvl;
+//  int      solver;
+//  int      num_procs;   /* Number of processors. */
+  //int nnz; to Q
+  //int n; to Q
+//  int* perm;
+//  char    *var;        /* Auxiliary variables. */
+//  int      i, k;       /* Auxiliary variables. */
+//  double   ddum;              /* Double dummy */
+//  int      idum;              /* Integer dummy. */
+  //pspmatrix Q = NULL;
+  //pspmatrix L = NULL;
+//  psspmatrix L;
+//  psspmatrix Q;
+//  psspmatrix Qinv;
+    
+    
     
     /*
       mydata->pt, 

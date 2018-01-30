@@ -744,26 +744,27 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
     FILE *fp = NULL;
     int i=0;
     
-    FILE *fp = fopen(filename, "a");
+    fp = fopen(filename, "a");
     for(i=0; i<64; i++)
-       fprintf("%d, ", mydata->iparm[i]);
-    fprintf("\n");
+       fprintf(fp, "%d, ", mydata->iparm[i]);
+    fprintf(fp, "\n");
     for(i=0; i<64; i++)
-       fprintf("%12.12g, ", mydata->dparm[i]);
-    fprintf("\n");
-    fprintf("%d \n",  mydata->mtype);
-    fprintf("%d \n",  mydata->mnum);
-    fprintf("%d \n",  mydata->phase);
-    fprintf("%d \n",  mydata->idum);
-    fprintf("%12.12g \n",  mydata->idum);
-    fprintf("%d \n",  mydata->nrhs);
-    fprintf("%d \n",  mydata->ipart);
-    fprintf("%d \n",  mydata->msglvl);
-    fprintf("%12.12g, \n",  mydata->ddum);
-    fprintf("%d \n",  mydata->error);
+       fprintf(fp, "%12.12g, ", mydata->dparm[i]);
+    fprintf(fp, "\n");
+    fprintf(fp, "%d \n",  mydata->mtype);
+    fprintf(fp, "%d \n",  mydata->mnum);
+    fprintf(fp, "%d \n",  mydata->phase);
+    fprintf(fp, "%d \n",  mydata->idum);
+    fprintf(fp, "%d \n",  mydata->nrhs);
+  //  fprintf(fp, "%d \n",  mydata->ipart);
+    fprintf(fp, "%d \n",  mydata->msglvl);
+    fprintf(fp, "%12.12g, \n",  mydata->ddum);
+    fprintf(fp, "%d \n",  mydata->error);
     
     
-//  void    *pt[64]; 
+/*  void    *pt[64];    Internal solver memory pointer pt,                  
+   32-bit: int pt[64]; 64-bit: long int pt[64]         
+   or void *pt[64] should be OK on both architectures  */
   /* Pardiso control parameters. */
 //  int      iparm[64];
 //  double   dparm[64];

@@ -164,14 +164,14 @@ int alex_symbolic_factorization(pdata_storage mydata);
 
 //Numerical Cholesky factorization
 //int alex_chol(pdata_storage mydata, pINLA_mtx Q);
-int alex_chol(pdata_storage mydata, psspmatrix Q, psspmatrix L);
+int alex_chol(pdata_storage mydata);
 
 //Solve linear system Lx=b
-int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x);
+int alex_solve_Lx(pdata_storage mydata,  double* v,  double* w);
 
 
 //Solve linear system L^Tx=b
-int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x);
+int alex_solve_LTx(pdata_storage mydata,  double* v,  double* w);
 
 
 //Solve linear system LL^Tx=b
@@ -179,7 +179,7 @@ int alex_solve_LLTx(pdata_storage mydata,  double* b,  double* x);
 
 //Computing partial inverse, means solving linear system foer specific RHS
 //int alex_inv(pdata_storage mydata,  pINLA_mtx Q,  pINLA_mtx Qinv);
-int alex_inv(pdata_storage mydata,  psspmatrix Q,  psspmatrix Qinv);
+int alex_inv(pdata_storage mydata);
 
 //Compute log-det
 double alex_log_det(pdata_storage mydata);
@@ -209,5 +209,6 @@ int main();
 
 void write_CSR_matrix(psspmatrix S, char *filename);
 void read_CSR_matrix(psspmatrix S, char *filename);
+void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin);
 
 #endif

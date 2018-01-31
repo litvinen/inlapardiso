@@ -599,18 +599,42 @@ int alex_symbolic_factorization(pdata_storage mydata)
   return 0;
 }
 
+void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin)
+{
+   destin->n = source->n ;
+   destin->nia = source->nia ;
+   destin->cols = source->cols ;
+   destin->rows = source->rows ;
+   destin->nnz = source->nnz ;
+   destin->logdet = source->logdet ;
+   memcpy(dest, src, strlen(src)+1);
+   destin->ia=(int*)malloc(source->n * sizeof(int)); 
+   destin->ja=(int*)malloc(source->nnz * sizeof(int)); 
+   destin->a=(double*)malloc(source->nnz * sizeof(double)); 
+   memcpy(source->Q->ia, destin->ia, source->n );
+   memcpy(source->Q->ja, destin->ja, source->nnz );
+   memcpy(source->Q->a, destin->a, source->nnz );
+    
+    
+}
+
 //Numerical Cholesky factorization
 //int alex_chol(pdata_storage mydata, pINLA_mtx Q)
-int alex_chol(pdata_storage mydata, psspmatrix Q, psspmatrix L)
+int alex_chol(pdata_storage mydata)
 {
+    
+    if(mydata->L !=NULL)
+       mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
+    
+    alex_CSRmatrix_copy(mydataL->Q, mydata->L);
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+             &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
     if (mydata->error != 0) {
         printf("\nERROR during numerical factorization: %d", mydata->error);
         exit(2);
     }
-    printf("\nFactorization completed ...\n ");
+    printf("\n Cholesky factorization completed ...\n ");
   return 0;
 }
 
@@ -618,19 +642,19 @@ int alex_chol(pdata_storage mydata, psspmatrix Q, psspmatrix L)
 
 
 //Solve linear system Lx=b
-int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x)
+int alex_forward_subst(pdata_storage mydata,  double* rhs,  double* y)
 {
 
 /* ..  Back substitution and iterative refinement.                      */
     pardiso ( mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
-             mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
+             &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), rhs, y, &(mydata->error),  mydata->dparm);
     if (mydata->error != 0) {
         printf("\nERROR during solution: %d", mydata->error);
         exit(3);
     }
 
-    printf("\nSolve Lx=b completed ... ");
+    printf("\nSolve Ly=rhs completed ... ");
     printf ("\n\n");
 
 
@@ -639,7 +663,7 @@ int alex_solve_Lx(pdata_storage mydata,  double* b,  double* x)
 
 
 //Solve linear system L^Tx=b
-int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
+int alex_back_subst(pdata_storage mydata,  double* y,  double* x)
 {
     clock_t start, end;
     double cpu_time_used;
@@ -660,7 +684,7 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
         exit(3);
     }
 */
-    printf("\nSolve L^Tx=b is also completed ... ");
+    printf("\nSolve L^Tx=y is also completed ... ");
     printf("\nThe solution of the system is: ");
     for (i = 0; i < mydata->Q->n; i++) {
 //        printf("\n x [%d] = % f", i, x[i] );
@@ -672,17 +696,24 @@ int alex_solve_LTx(pdata_storage mydata,  double* b,  double* x)
 
 
 //Solve linear system LL^Tx=b
-int alex_solve_LLTx(pdata_storage mydata,  double* b,  double* x)
+int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
 {
-  alex_solve_Lx(mydata,  b, x);
-  alex_solve_LTx(mydata, b, x);
+  double* y=NULL;
+  y = (double*)malloc( mydata->Q->n*sizeof(double)) ;
     
+  alex_forward_subst(mydata,  rhs, y); // L y = rhs
+  alex_back_subst(mydata, y, x); // L^T x = y
+  
+  free(y)  ;
   return 0;
 }
 
 //Computing partial inverse, means solving linear system foer specific RHS
-int alex_inv(pdata_storage mydata,   psspmatrix Q,   psspmatrix Qinv)
+int alex_inv(pdata_storage mydata)
 {
+  psspmatrix Q = mydata->Q;
+  psspmatrix Qinv = mydata->Qinv;
+  
   /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
   U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
   the selected inverse elements of A −1 . If IPARM(36) = 1 and PHASE = -22, PARDISO will
@@ -1012,7 +1043,7 @@ int main()
     alex_clean_mydata(mydata);
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
-    alex_chol(mydata, mydata->Q , mydata->L);  //also computes log determinant
+    alex_chol(mydata);  //also computes log determinant
     alex_clean_mydata(mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"

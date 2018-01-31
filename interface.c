@@ -272,19 +272,46 @@ void print_CSR(psspmatrix S)
   
 }
 
+
 /* Allocation and initialization of PARDISO variables*/
+int alex_mydata_initialization(pdata_storage mydata)
+{
+   int i=0;
+   mydata->mtype=0;
+   mydata->mnum=0;
+   mydata->phase=0;
+   mydata->idum=0;
+   mydata->nrhs=0;
+   mydata->msglvl=0;
+   mydata->ddum=0.0;
+   mydata->error=0;
+
+   for( i = 0; i < 64; i++)
+   {
+      mydata->iparm[i] = 0;
+   }
+   for( i = 0; i < 64; i++)
+   {
+      mydata->dparm[i] = 0.0; 
+   }
+}
+
+
 int alex_initialization(int flag, pdata_storage mydata)
 {
   int num_procs=0;
   char    *var;
-    
+  int i=0;
+  
 //flag==-1=="initial/common initialization of PARDISO"
 //flag==0=="reordering"
 //flag==1="symbolic factorization"
 //flag==2="numerical factorization"
 //flag==3="Cholesky factorization"
 //flag==4="Partial inversion"
-  printf("flag= %d \n", flag);
+   printf("flag= %d \n", flag);
+
+   
 
    
    if(flag==-1) //general initialization
@@ -403,6 +430,60 @@ void convert_C2F(psspmatrix Q)
         Q->ja[i] += 1;
    }
 }
+
+/* Read sparse matrix in matlab format */
+void read_CSR_matrix( psspmatrix Q, char *filename)
+{
+    int    n = 0;
+    int    nnz = 0;
+    FILE *f5;
+    int anzv=0, j=0, row_index=0, col_index=0;
+    double elem=0.0;
+    double* a=NULL;
+    int* ia=NULL;
+    int* ja=NULL;
+    
+    f5 = fopen( filename, "r");
+    if( f5 == NULL)
+    {
+      printf( "Can't open the file\n");
+      exit (1);
+    }
+    fscanf( f5, "%d\n", &anzv);
+    n = anzv-1;
+    //printf("n=%d \n", anzv);
+    Q->n=n;
+    Q->ia=(int*)malloc((n+1)*sizeof(int));
+    for( j = 0; j < anzv; j++)
+    {
+      fscanf( f5, "%d", &row_index);
+      //printf("row_index=%d \n", row_index);
+      Q->ia[j] = row_index; 
+    }
+    
+    fscanf( f5, "%d\n", &anzv); 
+    Q->nnz=anzv;
+    Q->ja=(int*)malloc((anzv+1)*sizeof(int));
+    for( j = 0; j < anzv; j++)
+    {
+      fscanf( f5, "%d", &col_index);
+      Q->ja[j] = col_index; 
+    }
+    fscanf( f5, "%d\n", &anzv); 
+    //printf("anzv=%d \n", anzv);
+    Q->a=(double*)malloc((anzv+1)*sizeof(double));
+    for( j = 0; j < anzv; j++)
+    {
+      fscanf( f5, "%lf", &elem);
+      Q->a[j] = elem; 
+    }
+    //Q->ia = ia;
+    //Q->ja = ja;
+    //Q->a  = a;
+    
+    fclose( f5);
+}   
+
 
 /* Read sparse matrix in matlab format */
 void read_sparse_matrix( psspmatrix Q)
@@ -729,10 +810,65 @@ int test_conversion()
     return (0);
 }
 
+
+void write_CSR_matrix(psspmatrix S, char *filename)
+{
+    int k=0;
+    FILE *fp = NULL;
+    
+    fp = fopen(filename, "a");
+    
+    fprintf(fp, "%d\n", S->nnz);
+    
+    for( k = 0; k < S->nnz; k++)
+       fprintf(fp, "%3.3g, ", S->a[k]); 
+    fprintf(fp, " \n"); 
+    //fprintf(fp, "Array ia[..]: \n"); 
+    for( k = 0; k <= S->rows; k++)
+       fprintf(fp, "%d, ", S->ia[k]); 
+    fprintf(fp, " \n"); 
+    //fprintf(fp, "Array ja[..]: \n"); 
+    for( k = 0; k < S->nnz; k++)
+       fprintf(fp, "%d, ", S->ja[k]); 
+    fprintf(fp, " \n"); 
+    
+    fclose(fp);
+  
+}
+
+
 /*Restore pardiso internal structures from a file*/
 void alex_pardiso_restore(pdata_storage mydata, char *filename)
 {
-    FILE *fp = fopen(filename, "r");
+    int i=0, ip=0;
+    double dp=0.0;
+    FILE *fp = NULL;
+    
+    fp = fopen(filename, "r");
+    fscanf( fp, "%d\n", &mydata->mtype);
+    fscanf( fp, "%d\n", &mydata->mnum);
+    fscanf( fp, "%d\n", &mydata->phase);
+    fscanf( fp, "%d\n", &mydata->idum);
+    fscanf( fp, "%d\n", &mydata->nrhs);
+    fscanf( fp, "%d\n", &mydata->msglvl);
+    fscanf( fp, "%lf\n", &mydata->ddum);
+    fscanf( fp, "%d\n", &mydata->error);
+
+    for( i = 0; i < 64; i++)
+    {
+      fscanf( fp, "%d, ", &ip);
+      mydata->iparm[i] = ip;
+    }
+    for( i = 0; i < 64; i++)
+    {
+      fscanf( fp, "%lf, ", &dp);
+      mydata->dparm[i] = dp; 
+    }
+    /* Read sparse matrix in matlab format */
+    filename = "matrixCSR.txt";
+    read_CSR_matrix( mydata->Q, filename);
+
+    
     fclose(fp);
 
     
@@ -743,14 +879,19 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
 {
     FILE *fp = NULL;
     int i=0;
-    
     fp = fopen(filename, "a");
-    for(i=0; i<64; i++)
-       fprintf(fp, "%d, ", mydata->iparm[i]);
-    fprintf(fp, "\n");
-    for(i=0; i<64; i++)
-       fprintf(fp, "%12.12g, ", mydata->dparm[i]);
-    fprintf(fp, "\n");
+    
+    /*
+    mydata->mtype=1;
+    mydata->mnum=2;
+    mydata->phase=3;
+    mydata->idum=4;
+    mydata->nrhs=5;
+    mydata->msglvl=6;
+    mydata->ddum=7.7;
+    mydata->error=8;
+    */
+    
     fprintf(fp, "%d \n",  mydata->mtype);
     fprintf(fp, "%d \n",  mydata->mnum);
     fprintf(fp, "%d \n",  mydata->phase);
@@ -758,60 +899,18 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
     fprintf(fp, "%d \n",  mydata->nrhs);
   //  fprintf(fp, "%d \n",  mydata->ipart);
     fprintf(fp, "%d \n",  mydata->msglvl);
-    fprintf(fp, "%12.12g, \n",  mydata->ddum);
+    fprintf(fp, "%12.12g \n",  mydata->ddum);
     fprintf(fp, "%d \n",  mydata->error);
-    
-    
-/*  void    *pt[64];    Internal solver memory pointer pt,                  
-   32-bit: int pt[64]; 64-bit: long int pt[64]         
-   or void *pt[64] should be OK on both architectures  */
-  /* Pardiso control parameters. */
-//  int      iparm[64];
-//  double   dparm[64];
-//  int  mtype;
-//  int  nrhs;
+    for(i=0; i<64; i++)
+       fprintf(fp, "%d, ", mydata->iparm[i]);
+    fprintf(fp, "\n");
+    for(i=0; i<64; i++)
+       fprintf(fp, "%12.12g, ", mydata->dparm[i]);
+    fprintf(fp, "\n");
+    filename = "matrixCSR.txt";
+    write_CSR_matrix(mydata->Q, filename);
 
-//  int      maxfct;
-//  int      mnum;
-//  int      phase;
-//  int      error;
-//  int      msglvl;
-//  int      solver;
-//  int      num_procs;   /* Number of processors. */
-  //int nnz; to Q
-  //int n; to Q
-//  int* perm;
-//  char    *var;        /* Auxiliary variables. */
-//  int      i, k;       /* Auxiliary variables. */
-//  double   ddum;              /* Double dummy */
-//  int      idum;              /* Integer dummy. */
-  //pspmatrix Q = NULL;
-  //pspmatrix L = NULL;
-//  psspmatrix L;
-//  psspmatrix Q;
-//  psspmatrix Qinv;
     
-    
-    
-    /*
-      mydata->pt, 
-    mydata->maxfct
-    mydata->mnum
-    mydata->mtype
-    mydata->phase
-    mydata->Q->n
-    mydata->Q->a
-    mydata->Q->ia
-    mydata->Q->ja
-    mydata->idum
-    mydata->nrhs
-    mydata->iparm
-    mydata->msglvl
-    mydata->ddum
-    mydata->ddum 
-    mydata->error
-    mydata->dparm;
-    */
     fclose(fp);
 }
 
@@ -855,14 +954,15 @@ int main()
     graph_t *g;
     
     
-    
+    mydata= (pdata_storage)malloc(sizeof(sdata_storage ));
+    alex_mydata_initialization(mydata);
+
    // test_conversion();
 
     solver=0;/* use sparse direct solver */
     //mtype=-2; // real symmetric 
     mtype = -2;      
     nrhs=1;
-    mydata= (pdata_storage)malloc(sizeof(sdata_storage ));
   
     init_mydata(mydata);
     
@@ -883,6 +983,7 @@ int main()
     // print_Q(g, Qdemo, (void *) g);
     //convert2CSR_alex_diag(mydata->Q, g, values);
 
+    alex_pardiso_store(mydata, "a.txt");
     
     
     mypermutation = (int*)malloc( mydata->Q->nnz*sizeof(int)) ;

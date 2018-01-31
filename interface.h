@@ -206,4 +206,8 @@ void init_mydata(pdata_storage mydata);
 /*Read sparse matrix, convert it, tests*/
 int test_conversion();
 int main();
+
+void write_CSR_matrix(psspmatrix S, char *filename);
+void read_CSR_matrix(psspmatrix S, char *filename);
+
 #endif

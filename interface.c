@@ -251,9 +251,10 @@ void convert2CSR_alex_diag(psspmatrix S, graph_t * g, double* diag)
 
 void alex_add_diag(graph_t * g, double* diag)
 {
-  /*Nee to modify graph, so that is contains diagonal*/  
+  /*Need to modify graph, so that is contains diagonal*/  
 }
 
+/*Print out arrays: a, ia, ja of a CSR matrix*/
 void print_CSR(psspmatrix S)
 {
     int k=0;
@@ -297,6 +298,7 @@ int alex_mydata_initialization(pdata_storage mydata)
 }
 
 
+/*Initialize Pardiso variables*/
 int alex_initialization(int flag, pdata_storage mydata)
 {
   int num_procs=0;
@@ -389,7 +391,6 @@ int alex_initialization(int flag, pdata_storage mydata)
       mydata->phase = 33;  //solve
 
    }
-
    return 1;
 }  
 

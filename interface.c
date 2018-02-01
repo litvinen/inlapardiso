@@ -608,13 +608,13 @@ void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin)
    destin->rows = source->rows ;
    destin->nnz = source->nnz ;
    destin->logdet = source->logdet ;
-   memcpy(dest, src, strlen(src)+1);
+
    destin->ia=(int*)malloc(source->n * sizeof(int)); 
    destin->ja=(int*)malloc(source->nnz * sizeof(int)); 
    destin->a=(double*)malloc(source->nnz * sizeof(double)); 
-   memcpy(source->Q->ia, destin->ia, source->n );
-   memcpy(source->Q->ja, destin->ja, source->nnz );
-   memcpy(source->Q->a, destin->a, source->nnz );
+   memcpy(destin->ia, source->ia, source->n );
+   memcpy(destin->ja, source->ja, source->nnz );
+   memcpy(destin->a, source->a, source->nnz );
     
     
 }
@@ -627,7 +627,7 @@ int alex_chol(pdata_storage mydata)
     if(mydata->L !=NULL)
        mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
     
-    alex_CSRmatrix_copy(mydataL->Q, mydata->L);
+    alex_CSRmatrix_copy(mydata->Q, mydata->L);
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
@@ -1052,7 +1052,7 @@ int main()
     alex_clean_mydata(mydata);
 
     alex_initialization(4, mydata); //flag==4="Partial inversion"
-    alex_inv(mydata, Q, Qinv);
+    alex_inv(mydata);
     alex_clean_mydata(mydata);
     convert_F2C(Q);
     alex_finalize(mydata);

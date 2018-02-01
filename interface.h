@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
-
+#include <string.h>
 // the full binary matrix is stored here
 typedef struct {
     int n;                             // size

@@ -37,7 +37,7 @@ struct spmatrix{
    int*    ja;
    double*  a ;
    int      nnz;
-   int      logdet;
+   double      logdet;
 };
 typedef struct spmatrix sspmatrix;
 typedef sspmatrix* psspmatrix;

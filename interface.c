@@ -286,6 +286,9 @@ int alex_mydata_initialization(pdata_storage mydata)
    mydata->msglvl=0;
    mydata->ddum=0.0;
    mydata->error=0;
+   mydata->Q = (psspmatrix)malloc(sizeof(sspmatrix));
+   mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
+   mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
 
    for( i = 0; i < 64; i++)
    {
@@ -362,8 +365,8 @@ int alex_initialization(int flag, pdata_storage mydata)
      /* -------------------------------------------------------------------- */
       mydata->phase = 11; // analysis
       mydata->error = 0;
-      mydata->iparm[5] = 0; //set to 1 if you want to provide your own permutation array
-    //mydata->iparm[12]=1;
+      mydata->iparm[4] = 0; //set to 1 if you want to provide your own permutation array
+    
 
    }
    if(flag==1) //1="symbolic factorization"
@@ -381,9 +384,13 @@ int alex_initialization(int flag, pdata_storage mydata)
    }
    if(flag==4) //4="Selected inversion"
    {
-      mydata->phase = -22; //Selected inversion
-      mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
-
+      mydata->phase = -22; /*  do not overwrite internal factor L with selected inversion*/ 
+      mydata->iparm[35]  = 1; /*  do not overwrite internal factor L with selected inversion*/ 
+/*It will instead allocate additional memory of size of the numbers of
+elements in L and U to store these inverse elements. 
+*/
+      mydata->iparm[36]  = 1; /* PARDISO will return the selected inverse elements
+A^−1_ij in full symmetric triangular CSR format.*/ 
    }
    if(flag==5) //4="Solve for x"
    {
@@ -623,11 +630,9 @@ void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin)
 //int alex_chol(pdata_storage mydata, pINLA_mtx Q)
 int alex_chol(pdata_storage mydata)
 {
-    
-    if(mydata->L !=NULL)
-       mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
-    
+    printf("Copy matrix Q into matrix L. MAY BE PARDISO DO IT AUTOMATICALLY !?!?!? \n");
     alex_CSRmatrix_copy(mydata->Q, mydata->L);
+    //    printf("Matrix L is not empty !!! \n");
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
@@ -670,25 +675,34 @@ int alex_back_subst(pdata_storage mydata,  double* y,  double* x)
     double cpu_time_used;
     int i=0;
     
+    
 /* -------------------------------------------------------------------- */    
 /* ..  Back substitution and iterative refinement.                      */
 /* -------------------------------------------------------------------- */    
-   /* start = clock();
+
+
+
+//On entry: Solve a system A^T x = b by using the factorization of A.
+//The default value of IPARM(12) is 0. IPARM(12)=1 indicates that you would like to solve
+//transposed system A^T x = b.
+   mydata->iparm[11]=1;
+
+   /* start = clock();*/
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-             &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
-             mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    printf("!!!!!!!!!!!!1Back substitution and iterative refinement took %f seconds to execute \n", cpu_time_used );
+             &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
+             mydata->iparm, &(mydata->msglvl), y, x, &(mydata->error),  mydata->dparm);
+    //end = clock();
+    //cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    //printf("!!!!!!!!!!!!1Back substitution and iterative refinement took %f seconds to execute \n", cpu_time_used );
     if (mydata->error != 0) {
         printf("\nERROR during solution: %d", mydata->error);
         exit(3);
     }
-*/
+
     printf("\nSolve L^Tx=y is also completed ... ");
     printf("\nThe solution of the system is: ");
     for (i = 0; i < mydata->Q->n; i++) {
-//        printf("\n x [%d] = % f", i, x[i] );
+        printf("\n x [%d] = % f", i, x[i] );
     }
     printf ("\n\n");
 
@@ -696,7 +710,7 @@ int alex_back_subst(pdata_storage mydata,  double* y,  double* x)
 }
 
 
-//Solve linear system LL^Tx=b
+//Solve linear system LL^Tx=b, return x
 int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
 {
   double* y=NULL;
@@ -705,7 +719,7 @@ int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
   alex_forward_subst(mydata,  rhs, y); // L y = rhs
   alex_back_subst(mydata, y, x); // L^T x = y
   
-  free(y)  ;
+  free(y);
   return 0;
 }
 
@@ -773,8 +787,8 @@ double alex_log_det(pdata_storage mydata)
   A. The default value of IPARM(33) is 0.
 */
 
-  mydata->Q->logdet=   mydata->dparm[33];
-  return mydata->dparm[33];
+  mydata->Q->logdet=   mydata->dparm[32];
+  return mydata->dparm[32];
 }
 
 
@@ -985,7 +999,7 @@ int main()
     int* mypermutation = NULL;
     graph_t *g;
     
-    
+    printf("!!!Note that in C programming : iparm[3]=number_of_processors from manual is iparm[2] in C program!!!!\n");
     mydata= (pdata_storage)malloc(sizeof(sdata_storage ));
     alex_mydata_initialization(mydata);
 

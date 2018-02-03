@@ -365,7 +365,7 @@ int alex_initialization(int flag, pdata_storage mydata)
      /* -------------------------------------------------------------------- */
       mydata->phase = 11; // analysis
       mydata->error = 0;
-      mydata->iparm[4] = 0; //set to 1 if you want to provide your own permutation array
+      mydata->iparm[4] = 1; //set to 1 if you want to provide your own permutation array
     
 
    }
@@ -381,6 +381,8 @@ int alex_initialization(int flag, pdata_storage mydata)
    if(flag==3) //3="Cholesky factorization"
    {
       mydata->phase = 12; // Analysis, numerical factorization
+      //  IPARM (26) — Splitting of Forward/Backward Solve.
+      
    }
    if(flag==4) //4="Selected inversion"
    {
@@ -569,9 +571,9 @@ int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
 {
     clock_t start, end;
     double cpu_time_used;
-
+//IPARM (5) — User permutation.
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, mypermutation, &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
     
     if (mydata->error != 0) {
@@ -715,8 +717,10 @@ int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
 {
   double* y=NULL;
   y = (double*)malloc( mydata->Q->n*sizeof(double)) ;
-    
+  //  IPARM (26) — Splitting of Forward/Backward Solve.
+  mydata->iparm[25] = 1; // IPARM(25) = 1 indicates that a forward solve step is performed with the factors L
   alex_forward_subst(mydata,  rhs, y); // L y = rhs
+  mydata->iparm[25] = 2; // IPARM(25) = 2 indicates that a backward solve step is performed with the factors U or L T
   alex_back_subst(mydata, y, x); // L^T x = y
   
   free(y);

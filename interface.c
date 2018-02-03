@@ -365,7 +365,7 @@ int alex_initialization(int flag, pdata_storage mydata)
      /* -------------------------------------------------------------------- */
       mydata->phase = 11; // analysis
       mydata->error = 0;
-      mydata->iparm[4] = 1; //set to 1 if you want to provide your own permutation array
+      mydata->iparm[4] = 0; //set to 1 if you want to provide your own permutation array
     
 
    }
@@ -609,35 +609,72 @@ int alex_symbolic_factorization(pdata_storage mydata)
   return 0;
 }
 
-void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin)
+void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata)
 {
+    int i=0;
+    pardiso_chkmatrix(&(mydata->mtype), &(source->n), source->a,  source->ia,  source->ja, &( mydata->error));
+    if ( mydata->error!= 0) {
+        printf("\n source  ERROR in consistency of matrix: %d",  mydata->error);
+        exit(1);
+    }
+    else
+      printf("\n source is fine! \n");        
+
+    
    destin->n = source->n ;
    destin->nia = source->nia ;
    destin->cols = source->cols ;
    destin->rows = source->rows ;
    destin->nnz = source->nnz ;
    destin->logdet = source->logdet ;
-
-   destin->ia=(int*)malloc(source->n * sizeof(int)); 
+   destin->ia=(int*)malloc((1+source->n+1) * sizeof(int)); 
    destin->ja=(int*)malloc(source->nnz * sizeof(int)); 
    destin->a=(double*)malloc(source->nnz * sizeof(double)); 
-   memcpy(destin->ia, source->ia, source->n );
-   memcpy(destin->ja, source->ja, source->nnz );
-   memcpy(destin->a, source->a, source->nnz );
-    
-    
+   //memcpy(destin->ia, source->ia, (source->n+1)*sizeof(int) );
+   //memcpy(destin->ja, source->ja, source->nnz*sizeof(int) );
+   //memcpy(destin->a, source->a, source->nnz*sizeof(double) );
+   for (i = 0; i <= source->n; i++) 
+       destin->ia[i] = source->ia[i];
+   for (i = 0; i < source->nnz; i++) {
+       destin->ja[i] = source->ja[i];
+       destin->a[i] = source->a[i];
+   }    
+   
+   
+    pardiso_chkmatrix(&(mydata->mtype), &(destin->n), destin->a,  destin->ia,  destin->ja, &( mydata->error));
+    if ( mydata->error!= 0) {
+        printf("\n !!!1111ERROR in consistency of matrix: %d",  mydata->error);
+        exit(1);
+    }
+    else
+      printf("\n destin is fine! \n");        
+        
+
 }
 
 //Numerical Cholesky factorization
 //int alex_chol(pdata_storage mydata, pINLA_mtx Q)
 int alex_chol(pdata_storage mydata)
 {
-    printf("Copy matrix Q into matrix L. MAY BE PARDISO DO IT AUTOMATICALLY !?!?!? \n");
-    alex_CSRmatrix_copy(mydata->Q, mydata->L);
+   printf("Copy matrix Q into matrix L. MAY BE PARDISO DO IT AUTOMATICALLY !?!?!? \n");
+   alex_CSRmatrix_copy(mydata->Q, mydata->L,  mydata);
+   pardiso_chkmatrix  (&(mydata->mtype), &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->error));
+    if (mydata->error != 0) {
+        printf("\n  !!!ERROR in consistency of matrix: %d", mydata->error);
+        exit(1);
+    }
+    else
+      printf(" L is fine\n");
+    
+    
+    
+    printf("Copy is done. \n");
+    mydata->iparm[32] = 1; /* compute determinant */
     //    printf("Matrix L is not empty !!! \n");
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
+  
     if (mydata->error != 0) {
         printf("\nERROR during numerical factorization: %d", mydata->error);
         exit(2);
@@ -1039,16 +1076,30 @@ int main()
     mypermutation = (int*)malloc( mydata->Q->nnz*sizeof(int)) ;
     x = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
     b = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
-    for( j = 0; j < mydata->Q->nnz; j++)
+    for( j = 0; j <= mydata->Q->nnz; j++)
     {
-      mypermutation[j] = j;
-      x[i]=0.0; 
-      b[i]=1.0; 
+      mypermutation[j] = j+1;
+      x[j]=0.0; 
+      b[j]=1.0; 
     } 
    
 
 
     convert_C2F(mydata->Q);
+    printf("\n Checking Q.... \n");
+
+    pardiso_chkmatrix  (&(mydata->mtype), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
+    if (mydata->error != 0) {
+        printf("\nERROR in consistency of matrix: %d", mydata->error);
+        exit(1);
+    }
+    printf("\n Q is fine!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  \n");
+
+    
+    
+    
+    
+    
     pardisoinit(mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm,  &(mydata->error)); 
 
     alex_initialization(0, mydata); //flag==0=="reordering"

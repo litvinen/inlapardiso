@@ -209,6 +209,7 @@ int main();
 
 void write_CSR_matrix(psspmatrix S, char *filename);
 void read_CSR_matrix(psspmatrix S, char *filename);
-void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin);
+//void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin);
+void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata);
 
 #endif

@@ -201,7 +201,7 @@ int alex_finalize(pdata_storage mydata);
 int alex_clean_mydata(pdata_storage  mydata);
 
 /* To test the code run this procedure */
-void init_mydata(pdata_storage mydata);
+//void init_mydata(pdata_storage mydata);
 
 /*Read sparse matrix, convert it, tests*/
 int test_conversion();
@@ -211,5 +211,6 @@ void write_CSR_matrix(psspmatrix S, char *filename);
 void read_CSR_matrix(psspmatrix S, char *filename);
 //void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin);
 void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata);
+void alex_test_compare_with_pardiso(pdata_storage mydata);
 
 #endif

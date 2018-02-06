@@ -775,7 +775,7 @@ int alex_inv(pdata_storage mydata)
   the selected inverse elements of A −1 . If IPARM(36) = 1 and PHASE = -22, PARDISO will
   not overwrite these factors. It will instead allocate additional memory of size of the numbers of
   elements in L and U to store these inverse elements.*/
-  int k=0, i=0;
+  int k=0, i=0, j=0;
   double* x;
   double* b;
   x = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
@@ -789,7 +789,7 @@ int alex_inv(pdata_storage mydata)
    if (mydata->solver == 0)
    {
     	printf("\nCompute Diagonal Elements of the inverse of A ... \n");
-	    mydata->phase = -22;
+        mydata->phase = -22;
         mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
 
   
@@ -798,11 +798,21 @@ int alex_inv(pdata_storage mydata)
 
 //        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
  /* print diagonal elements */
-       for (k = mydata->Q->n-10; k < mydata->Q->n; k++)
+       printf("\n print last 5 diagonal elements %d... \n", mydata->Q->n);
+
+       //for (k = 0; k < mydata->Q->n-5; k++)
+      // {
+        //   j = mydata->Q->ia[k]-1;     
+          // printf("j=%d\n", j);
+           //printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
+       //}
+       for (k = mydata->Q->n-1; k > mydata->Q->n-5; k--)
        {
-            int j = mydata->Q->ia[k]-1;      
-            printf ("Last 10 elements. Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
+            j = mydata->Q->ia[k]-1;      
+//            printf("k=%d, mydata->Q->ja[j]-1=%d \n", k, mydata->Q->ja[j]-1);
+            printf ("Diagonal element of A^{-1}(%d, %d)= %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
        }
+       printf("\n finished \n");
 
    } 
 
@@ -854,14 +864,6 @@ int alex_clean_mydata(pdata_storage  mydata)
 }
 
 
-void init_mydata(pdata_storage mydata)
-{
-    
-   mydata->Q = (psspmatrix) malloc(sizeof(sspmatrix));
-   mydata->L = (psspmatrix) malloc(sizeof(sspmatrix));
-   mydata->Qinv = (psspmatrix) malloc(sizeof(sspmatrix));
-    
-}
 
 
 
@@ -1001,6 +1003,36 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
     fclose(fp);
 }
 
+void alex_test_compare_with_pardiso(pdata_storage mydata)
+{
+       /* Matrix data. */
+    int    n = 8;
+    int    ia[ 9] = { 0, 4, 7, 9, 11, 14, 16, 17, 18 };
+    int    ja[18] = { 0,    2,       5, 6,
+                         1, 2,    4,
+                            2,             7,
+                               3,       6,
+                                  4, 5, 6,
+                                     5,    7,
+                                        6,
+                                           7 };
+    double a[18] = { 7.0,      1.0,           2.0, 7.0,
+                          -4.0, 8.0,           2.0,
+                                1.0,                     5.0,
+                                     7.0,           9.0,
+                                          5.0, 1.0, 5.0,
+                                               0.0,      5.0,
+                                                   11.0,
+                                                         5.0 };
+
+
+    int     nnz = ia[n];
+    int      mtype = -2;        /* Real symmetric matrix */
+//    Q=(psspmatrix )malloc(sizeof(sspmatrix ));
+    
+    mydata->Q->n=n;
+    mydata->Q->ia=ia;
+}
 
 /* To test the code run this procedure */
 int main()
@@ -1051,7 +1083,6 @@ int main()
     mtype = -2;      
     nrhs=1;
   
-    init_mydata(mydata);
     
     mydata->mtype = mtype;
     mydata->nrhs = nrhs;
@@ -1060,7 +1091,6 @@ int main()
    //Another option is to take it from INLA
     
     
-    mydata->Q=(psspmatrix )malloc(sizeof(sspmatrix ));
     //g = read_graph("germany.graph.txt");
     g = read_graph("minitest3.graph.txt");
     print_graph(g);
@@ -1122,11 +1152,13 @@ int main()
 
     alex_initialization(4, mydata); //flag==4="Partial inversion"
     alex_inv(mydata);
+    printf("trying to deallocate memory \n");
     alex_clean_mydata(mydata);
-    convert_F2C(Q);
-    alex_finalize(mydata);
-    if(x!=NULL) free(x);
-    if(b!=NULL) free(b);
+    printf("alex_clean_mydata: Memory is deallocated.\n");
+    //convert_F2C(Q);
+    //alex_finalize(mydata);
+    //if(x!=NULL) free(x);
+    //if(b!=NULL) free(b);
     
     
     return 0;

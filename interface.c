@@ -267,7 +267,7 @@ void print_CSR(psspmatrix S)
        printf("%d, ", S->ia[k]); 
     printf(" \n"); 
     printf("Array ja[..]: \n"); 
-    for( k = 0; k < S->nnz; k++)
+    for( k = 0; k < S->n; k++)
        printf("%d, ", S->ja[k]); 
     printf(" \n"); 
   
@@ -391,14 +391,14 @@ int alex_initialization(int flag, pdata_storage mydata)
 /*It will instead allocate additional memory of size of the numbers of
 elements in L and U to store these inverse elements. 
 */
-      mydata->iparm[36]  = 1; /* PARDISO will return the selected inverse elements
-A^−1_ij in full symmetric triangular CSR format.*/ 
+//  VERY DANGEROUS OPTION    mydata->iparm[36]  = 1; /* PARDISO will return the selected inverse elements
+//A^−1_ij in full symmetric triangular CSR format.*/ 
    }
    if(flag==5) //4="Solve for x"
    {
       mydata->iparm[7] = 1;       /* Max numbers of iterative refinement steps. */
       mydata->phase = 33;  //solve
-
+   
    }
    return 1;
 }  
@@ -439,6 +439,9 @@ void convert_C2F(psspmatrix Q)
    {
         Q->ja[i] += 1;
    }
+   
+   
+ 
 }
 
 /* Read sparse matrix in matlab format */
@@ -680,6 +683,8 @@ int alex_chol(pdata_storage mydata)
         exit(2);
     }
     printf("\n Cholesky factorization completed ...\n ");
+    printf("\n !!! Determinant = %3.3g ...\n ", mydata->dparm[32]);
+    
   return 0;
 }
 
@@ -702,6 +707,8 @@ int alex_forward_subst(pdata_storage mydata,  double* rhs,  double* y)
     printf("\nSolve Ly=rhs completed ... ");
     printf ("\n\n");
 
+    
+    
 
   return 0;
 }
@@ -753,6 +760,7 @@ int alex_back_subst(pdata_storage mydata,  double* y,  double* x)
 int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
 {
   double* y=NULL;
+  int j=0, k=0;
   y = (double*)malloc( mydata->Q->n*sizeof(double)) ;
   //  IPARM (26) — Splitting of Forward/Backward Solve.
   mydata->iparm[25] = 1; // IPARM(25) = 1 indicates that a forward solve step is performed with the factors L
@@ -761,6 +769,7 @@ int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
   alex_back_subst(mydata, y, x); // L^T x = y
   
   free(y);
+
   return 0;
 }
 
@@ -778,10 +787,10 @@ int alex_inv(pdata_storage mydata)
   int k=0, i=0, j=0;
   double* x;
   double* b;
-  x = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
-  b = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
+  x = (double*)malloc( mydata->Q->n*sizeof(double)) ;
+  b = (double*)malloc( mydata->Q->n*sizeof(double)) ;
     
-  for (i = 0; i < mydata->Q->nnz; i++) {
+  for (i = 0; i < mydata->Q->n; i++) {
       b[i] = i;
       x[i] = 0.0;
   }
@@ -790,14 +799,23 @@ int alex_inv(pdata_storage mydata)
    {
     	printf("\nCompute Diagonal Elements of the inverse of A ... \n");
         mydata->phase = -22;
-        mydata->iparm[35]  = 1; /*  no not overwrite internal factor L */ 
+        mydata->iparm[35]  = 1; /*  do no not overwrite internal factor L */ 
 
-  
+       for (k = 0; k <5; k++)
+       {
+            j = mydata->Q->ia[k]-1;      
+            printf ("Pre Diagonal element of A(%d, %d)= %32.24e, b[%d]=%3.3g\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j], k, b[k]);
+       }
+        printf ("Check mtype = %d \n", mydata->mtype);
+        printf ("Check phase = %d \n", mydata->phase);
+        printf ("Check ja[0]= %d ja[1]= %d ja[2]= %d ja[3]= %d \n", mydata->Q->ja[0], mydata->Q->ja[1], mydata->Q->ja[2], mydata->Q->ja[3]);
+        printf ("Check ia[0]= %d ia[1]= %d ia[2]= %d ia[3]= %d ia[4]= %d ia[5]= %d ia[6]= %d \n", mydata->Q->ia[0], mydata->Q->ia[1], mydata->Q->ia[2], mydata->Q->ia[3], mydata->Q->ia[4], mydata->Q->ia[5], mydata->Q->ia[6]);
+       
         pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
 
-//        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
- /* print diagonal elements */
+       //        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
+       /* print diagonal elements */
        printf("\n print last 5 diagonal elements %d... \n", mydata->Q->n);
 
        //for (k = 0; k < mydata->Q->n-5; k++)
@@ -806,16 +824,18 @@ int alex_inv(pdata_storage mydata)
           // printf("j=%d\n", j);
            //printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
        //}
-       for (k = mydata->Q->n-1; k > mydata->Q->n-5; k--)
+//       for (k = mydata->Q->n-1; k > mydata->Q->n-5; k--)
+       for (k = 0; k <7; k++)
        {
-            j = mydata->Q->ia[k]-1;      
+            j = mydata->Q->ia[k]-1;
+            printf("j=%d \n", j);
+
 //            printf("k=%d, mydata->Q->ja[j]-1=%d \n", k, mydata->Q->ja[j]-1);
-            printf ("Diagonal element of A^{-1}(%d, %d)= %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
+            printf ("Diagonal element of A^{-1}(%d, %d)= %32.24e, b[%d]=%3.3g\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j], k, b[k]);
        }
        printf("\n finished \n");
 
    } 
-
 
   return 0;
 }
@@ -1007,31 +1027,73 @@ void alex_test_compare_with_pardiso(pdata_storage mydata)
 {
        /* Matrix data. */
     int    n = 8;
-    int    ia[ 9] = { 0, 4, 7, 9, 11, 14, 16, 17, 18 };
-    int    ja[18] = { 0,    2,       5, 6,
-                         1, 2,    4,
-                            2,             7,
-                               3,       6,
-                                  4, 5, 6,
-                                     5,    7,
-                                        6,
-                                           7 };
-    double a[18] = { 7.0,      1.0,           2.0, 7.0,
-                          -4.0, 8.0,           2.0,
-                                1.0,                     5.0,
-                                     7.0,           9.0,
-                                          5.0, 1.0, 5.0,
-                                               0.0,      5.0,
-                                                   11.0,
-                                                         5.0 };
+    int* ia=NULL;
+    int* ja=NULL;
+    double* a=NULL;
+    
+    
+    ia = (int*)malloc(9*sizeof(int));
+    ja = (int*)malloc(18*sizeof(int));
+    a  = (double*)malloc(18*sizeof(double));
+    ia[ 0] = 0;
+    ia[ 1] = 4;
+    ia[ 2] = 7;
+    ia[ 3] = 9;
+    ia[ 4] = 11;
+    ia[ 5] = 14;
+    ia[ 6] = 16;
+    ia[ 7] = 17;
+    ia[ 8] = 18;
 
+//    ia[ 9] = { 0, 4, 7, 9, 11, 14, 16, 17, 18 };
+    ja[0] =  0;
+    ja[1] =  2;
+    ja[2] =  5;
+    ja[3] =  6;
+    ja[4] =  1;
+    ja[5] =  2;
+    ja[6] =  4;
+    ja[7] =  2;
+    ja[8] =  7;
+    ja[9] =  3;
+    ja[10] =  6;
+    ja[11] =  4;
+    ja[12] =  5;
+    ja[13] =  6;
+    ja[14] =  5;
+    ja[15] =  7;
+    ja[16] =  6;
+    ja[17] =  7;
+    
+    a[0] = 7.0;
+    a[1] = 1.0;
+    a[2] = 2.0;
+    a[3] = 7.0;
+    a[4] = -4.0;
+    a[5] = 8.0;
+    a[6] = 2.0;
+    a[7] = 1.0;
+    a[8] = 5.0;
+    a[9] = 7.0;
+    a[10] = 9.0;
+    a[11] = 5.0;
+    a[12] = 1.0;
+    a[13] = 5.0;
+    a[14] = 0.0;
+    a[15] = 5.0;
+    a[16] = 11.0;
+    a[17] = 5.0;
 
     int     nnz = ia[n];
-    int      mtype = -2;        /* Real symmetric matrix */
+    int     mtype = -2;        /* Real symmetric matrix */
 //    Q=(psspmatrix )malloc(sizeof(sspmatrix ));
     
+    mydata->Q->nnz=nnz;
     mydata->Q->n=n;
     mydata->Q->ia=ia;
+    mydata->Q->a=a;
+    mydata->Q->ja=ja;
+    mydata->mtype=mtype;
 }
 
 /* To test the code run this procedure */
@@ -1087,37 +1149,43 @@ int main()
     mydata->mtype = mtype;
     mydata->nrhs = nrhs;
     mydata->solver = solver;
+    pardisoinit(mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm,  &(mydata->error)); 
    // One of the options is just to read CRS matrix from a file(s) read_sparse_matrix(mydata->Q);
    //Another option is to take it from INLA
     
     
     //g = read_graph("germany.graph.txt");
-    g = read_graph("minitest3.graph.txt");
-    print_graph(g);
-    convert2CSR_alex(mydata->Q, g);
-    print_CSR(mydata->Q);
+    //g = read_graph("minitest3.graph.txt");
+    //print_graph(g);
+   // convert2CSR_alex(mydata->Q, g);
+   mydata->Q = (psspmatrix)malloc(sizeof(sspmatrix));
+   mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
+   mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
+   alex_test_compare_with_pardiso(mydata); //Just to test .
+
+    //print_CSR(mydata->Q);
 
     // print_Q(g, Qdemo, (void *) g);
     //convert2CSR_alex_diag(mydata->Q, g, values);
 
-    alex_pardiso_store(mydata, "a.txt");
+   //alex_pardiso_store(mydata, "a.txt");
     
     
-    mypermutation = (int*)malloc( mydata->Q->nnz*sizeof(int)) ;
-    x = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
-    b = (double*)malloc( mydata->Q->nnz*sizeof(double)) ;
-    for( j = 0; j <= mydata->Q->nnz; j++)
+    mypermutation = (int*)malloc( mydata->Q->n*sizeof(int)) ;
+    x = (double*)malloc( mydata->Q->n*sizeof(double)) ;
+    b = (double*)malloc( mydata->Q->n*sizeof(double)) ;
+    for( j = 0; j < mydata->Q->n; j++)
     {
       mypermutation[j] = j+1;
       x[j]=0.0; 
-      b[j]=1.0; 
+      b[j]=j; 
     } 
-   
+       
+
 
 
     convert_C2F(mydata->Q);
-    printf("\n Checking Q.... \n");
-
+    
     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
     if (mydata->error != 0) {
         printf("\nERROR in consistency of matrix: %d", mydata->error);
@@ -1130,7 +1198,6 @@ int main()
     
     
     
-    pardisoinit(mydata->pt,  &(mydata->mtype), &(mydata->solver), mydata->iparm, mydata->dparm,  &(mydata->error)); 
 
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);

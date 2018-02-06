@@ -576,14 +576,22 @@ void read_sparse_matrix( psspmatrix Q)
 
 
 // reordering and symbolic fact., computed just once
-int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation)
+int alex_reordering(pdata_storage mydata, psgraph_t mgraph)
 {
     clock_t start, end;
     double cpu_time_used;
 //IPARM (5) — User permutation.
+    int k=0;
+    
+    for(k=0; k < mydata->Q->n; k++)
+        printf("Before mypermutation[%d]=%d\n", k, mydata->mypermutation[k]);
+    
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
-	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, mypermutation, &(mydata->nrhs),
+	     &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, mydata->mypermutation, &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error), mydata->dparm);
+
+    for(k=0; k < mydata->Q->n; k++)
+        printf("After mypermutation[%d]=%d\n", k, mydata->mypermutation[k]);
     
     if (mydata->error != 0) {
         printf("\nERROR during symbolic factorization: %d", mydata->error);
@@ -857,10 +865,41 @@ int alex_finalize(pdata_storage mydata)
 {
     int phase = -1;                 /* Release internal memory. */
     
+    if(mydata!=NULL)
+    {
+  /*      if(mydata->Q!=NULL)
+            alex_clean_CRS_matrix(mydata->Q);*/
+        if(mydata->Qinv!=NULL)
+            alex_clean_CRS_matrix(mydata->Qinv);
+        if(mydata->L!=NULL)
+           alex_clean_CRS_matrix(mydata->L);
+        if(mydata->mypermutation!=NULL)
+        {    
+          free(mydata->mypermutation);
+          mydata->mypermutation=NULL;
+        }
+    }
     pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->Q->n), &(mydata->ddum), mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
 
+
+}
+
+void  alex_clean_CRS_matrix(psspmatrix A)
+{
+    if(A!=NULL)
+    {
+        if(A->a!=NULL)
+            free(A->a);
+        if(A->ia!=NULL)
+            free(A->ia);
+        if(A->ja!=NULL)
+            free(A->ja);
+        free(A);
+        A=NULL;
+
+    }
 }
 
 int alex_clean_mydata(pdata_storage  mydata)
@@ -1015,11 +1054,13 @@ void alex_test_compare_with_pardiso(pdata_storage mydata)
     int* ia=NULL;
     int* ja=NULL;
     double* a=NULL;
+    int* mypermutation;
     
-    
+    mypermutation = (int*)malloc(9*sizeof(int));
     ia = (int*)malloc(9*sizeof(int));
     ja = (int*)malloc(18*sizeof(int));
     a  = (double*)malloc(18*sizeof(double));
+    
     ia[ 0] = 0;
     ia[ 1] = 4;
     ia[ 2] = 7;
@@ -1073,6 +1114,7 @@ void alex_test_compare_with_pardiso(pdata_storage mydata)
     int     mtype = -2;        /* Real symmetric matrix */
 //    Q=(psspmatrix )malloc(sizeof(sspmatrix ));
     
+    mydata->mypermutation=mypermutation;
     mydata->Q->nnz=nnz;
     mydata->Q->n=n;
     mydata->Q->ia=ia;
@@ -1116,7 +1158,6 @@ int main()
     int      idum;              /* Integer dummy. */
     psspmatrix Q = NULL, Qinv=NULL, L=NULL;
     psgraph_t mgraph = NULL;
-    int* mypermutation = NULL;
     graph_t *g;
     
     printf("!!!Note that in C programming : iparm[3]=number_of_processors from manual is iparm[2] in C program!!!!\n");
@@ -1155,12 +1196,11 @@ int main()
    //alex_pardiso_store(mydata, "a.txt");
     
     
-    mypermutation = (int*)malloc( mydata->Q->n*sizeof(int)) ;
     x = (double*)malloc( mydata->Q->n*sizeof(double)) ;
     b = (double*)malloc( mydata->Q->n*sizeof(double)) ;
     for( j = 0; j < mydata->Q->n; j++)
     {
-      mypermutation[j] = j+1;
+      mydata->mypermutation[j] = j+1;
       x[j]=0.0; 
       b[j]=j; 
     } 
@@ -1173,7 +1213,7 @@ int main()
     }
     
     alex_initialization(0, mydata); //flag==0=="reordering"
-    alex_reordering(mydata, mgraph, mypermutation);
+    alex_reordering(mydata, mgraph);
     alex_clean_mydata(mydata);
 
     alex_initialization(1, mydata); //flag==1="symbolic factorization"
@@ -1184,10 +1224,9 @@ int main()
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
     alex_chol(mydata);  //also computes log determinant
-//    alex_log_det(mydata);
     alex_clean_mydata(mydata);
 
-    alex_initialization(6, mydata); //flag==6="Cholesky factorization"
+    alex_initialization(6, mydata); //flag==6="Compute only log-determinant (Cholesky is also computed)"
     alex_log_det(mydata);
     alex_clean_mydata(mydata);
 

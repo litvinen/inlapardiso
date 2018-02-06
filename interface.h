@@ -89,6 +89,7 @@ struct data_storage{
   psspmatrix L;
   psspmatrix Q;
   psspmatrix Qinv;
+  int* mypermutation;
   //psspmatrix Q = (psspmatrix) malloc(sizeof(sspmatrix));
 
 };
@@ -157,7 +158,7 @@ void convert_C2F(psspmatrix Q);
 void read_sparse_matrix( psspmatrix Q);
 
 // reordering, computed just once
-int alex_reordering(pdata_storage mydata, psgraph_t mgraph, int* mypermutation);
+int alex_reordering(pdata_storage mydata, psgraph_t mgraph);
 
 //compute the symbolic factorization, computed just once
 int alex_symbolic_factorization(pdata_storage mydata);
@@ -212,5 +213,7 @@ void read_CSR_matrix(psspmatrix S, char *filename);
 //void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin);
 void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata);
 void alex_test_compare_with_pardiso(pdata_storage mydata);
+void alex_clean_CRS_matrix(psspmatrix A);
+int alex_clean_mydata(pdata_storage  mydata);
 
 #endif

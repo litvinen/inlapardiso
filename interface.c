@@ -400,6 +400,12 @@ elements in L and U to store these inverse elements.
       mydata->phase = 33;  //solve
    
    }
+   if(flag==6) //6="Cholesky factorization"
+   {
+      mydata->phase = 12; // Analysis, numerical factorization
+      //  IPARM (26) — Splitting of Forward/Backward Solve.
+      
+   }
    return 1;
 }  
 
@@ -777,7 +783,6 @@ int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
 int alex_inv(pdata_storage mydata)
 {
   psspmatrix Q = mydata->Q;
-  psspmatrix Qinv = mydata->Qinv;
   
   /*On entry: IPARM(36) will control the selected inversion process based on the internal L and
   U factors. If IPARM(36) = 0 and PHASE = -22, PARDISO will overwrite these factors with
@@ -789,7 +794,10 @@ int alex_inv(pdata_storage mydata)
   double* b;
   x = (double*)malloc( mydata->Q->n*sizeof(double)) ;
   b = (double*)malloc( mydata->Q->n*sizeof(double)) ;
-    
+  
+
+  alex_CSRmatrix_copy(mydata->Q, mydata->Qinv,  mydata);
+  
   for (i = 0; i < mydata->Q->n; i++) {
       b[i] = i;
       x[i] = 0.0;
@@ -797,43 +805,18 @@ int alex_inv(pdata_storage mydata)
 
    if (mydata->solver == 0)
    {
-    	printf("\nCompute Diagonal Elements of the inverse of A ... \n");
         mydata->phase = -22;
         mydata->iparm[35]  = 1; /*  do no not overwrite internal factor L */ 
-
-       for (k = 0; k <5; k++)
-       {
-            j = mydata->Q->ia[k]-1;      
-            printf ("Pre Diagonal element of A(%d, %d)= %32.24e, b[%d]=%3.3g\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j], k, b[k]);
-       }
-        printf ("Check mtype = %d \n", mydata->mtype);
-        printf ("Check phase = %d \n", mydata->phase);
-        printf ("Check ja[0]= %d ja[1]= %d ja[2]= %d ja[3]= %d \n", mydata->Q->ja[0], mydata->Q->ja[1], mydata->Q->ja[2], mydata->Q->ja[3]);
-        printf ("Check ia[0]= %d ia[1]= %d ia[2]= %d ia[3]= %d ia[4]= %d ia[5]= %d ia[6]= %d \n", mydata->Q->ia[0], mydata->Q->ia[1], mydata->Q->ia[2], mydata->Q->ia[3], mydata->Q->ia[4], mydata->Q->ia[5], mydata->Q->ia[6]);
-       
-        pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
+        pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase), &(mydata->Qinv->n), mydata->Qinv->a, mydata->Qinv->ia, mydata->Qinv->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), b, x, &(mydata->error),  mydata->dparm);
 
        //        printf("!!!!!!!!!!!!1Inverse factorization took %f seconds to execute \n", cpu_time_used );
-       /* print diagonal elements */
-       printf("\n print last 5 diagonal elements %d... \n", mydata->Q->n);
-
-       //for (k = 0; k < mydata->Q->n-5; k++)
-      // {
-        //   j = mydata->Q->ia[k]-1;     
-          // printf("j=%d\n", j);
-           //printf ("Diagonal element of A^{-1} = %d %d %32.24e\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j]);
-       //}
-//       for (k = mydata->Q->n-1; k > mydata->Q->n-5; k--)
+       printf ("Diagonal element of A^{-1}\n");
        for (k = 0; k <7; k++)
        {
             j = mydata->Q->ia[k]-1;
-            printf("j=%d \n", j);
-
-//            printf("k=%d, mydata->Q->ja[j]-1=%d \n", k, mydata->Q->ja[j]-1);
-            printf ("Diagonal element of A^{-1}(%d, %d)= %32.24e, b[%d]=%3.3g\n", k, mydata->Q->ja[j]-1, mydata->Q->a[j], k, b[k]);
+            printf ("A^{-1}(%d, %d)= %32.24e\n", k, mydata->Qinv->ja[j]-1, mydata->Qinv->a[j]);
        }
-       printf("\n finished \n");
 
    } 
 
@@ -848,6 +831,8 @@ double alex_log_det(pdata_storage mydata)
    pardiso (mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), &(mydata->ddum), &(mydata->ddum), &(mydata->error),  mydata->dparm);
+   printf("\n !!!NEW!!! Determinant = %3.3g ...\n ", mydata->dparm[32]);
+
 /*
   IPARM (33) — Determinant of a matrix.
   Input
@@ -1141,8 +1126,7 @@ int main()
    // test_conversion();
 
     solver=0;/* use sparse direct solver */
-    //mtype=-2; // real symmetric 
-    mtype = -2;      
+    mtype=-2; // real symmetric 
     nrhs=1;
   
     
@@ -1158,9 +1142,9 @@ int main()
     //g = read_graph("minitest3.graph.txt");
     //print_graph(g);
    // convert2CSR_alex(mydata->Q, g);
-   mydata->Q = (psspmatrix)malloc(sizeof(sspmatrix));
-   mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
-   mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
+   //mydata->Q = (psspmatrix)malloc(sizeof(sspmatrix));
+   //mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
+   //mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
    alex_test_compare_with_pardiso(mydata); //Just to test .
 
     //print_CSR(mydata->Q);
@@ -1181,24 +1165,13 @@ int main()
       b[j]=j; 
     } 
        
-
-
-
     convert_C2F(mydata->Q);
-    
     pardiso_chkmatrix  (&(mydata->mtype), &(mydata->Q->n), mydata->Q->a, mydata->Q->ia, mydata->Q->ja, &(mydata->error));
     if (mydata->error != 0) {
         printf("\nERROR in consistency of matrix: %d", mydata->error);
         exit(1);
     }
-    printf("\n Q is fine!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  \n");
-
     
-    
-    
-    
-    
-
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph, mypermutation);
     alex_clean_mydata(mydata);
@@ -1211,6 +1184,11 @@ int main()
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
     alex_chol(mydata);  //also computes log determinant
+//    alex_log_det(mydata);
+    alex_clean_mydata(mydata);
+
+    alex_initialization(6, mydata); //flag==6="Cholesky factorization"
+    alex_log_det(mydata);
     alex_clean_mydata(mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"
@@ -1219,13 +1197,12 @@ int main()
 
     alex_initialization(4, mydata); //flag==4="Partial inversion"
     alex_inv(mydata);
-    printf("trying to deallocate memory \n");
+    convert_F2C(mydata->Q);
     alex_clean_mydata(mydata);
+    alex_finalize(mydata);
+    if(x!=NULL) free(x);
+    if(b!=NULL) free(b);
     printf("alex_clean_mydata: Memory is deallocated.\n");
-    //convert_F2C(Q);
-    //alex_finalize(mydata);
-    //if(x!=NULL) free(x);
-    //if(b!=NULL) free(b);
     
     
     return 0;

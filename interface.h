@@ -31,8 +31,6 @@ typedef sgraph_t* psgraph_t;
 struct spmatrix{
    int     n ;
    int     nia ;
-   int     cols;
-   int     rows;
    int*    ia;
    int*    ja;
    double*  a ;
@@ -199,7 +197,6 @@ void alex_pardiso_store(pdata_storage mydata, char *filename);
 /* -------------------------------------------------------------------- */    
 int alex_finalize(pdata_storage mydata);
 
-int alex_clean_mydata(pdata_storage  mydata);
 
 /* To test the code run this procedure */
 //void init_mydata(pdata_storage mydata);
@@ -214,6 +211,6 @@ void read_CSR_matrix(psspmatrix S, char *filename);
 void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata);
 void alex_test_compare_with_pardiso(pdata_storage mydata);
 void alex_clean_CRS_matrix(psspmatrix A);
-int alex_clean_mydata(pdata_storage  mydata);
+int alex_clean_mydata(int flag, pdata_storage  mydata);
 
 #endif

@@ -95,7 +95,6 @@ void convert2CSR(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
 
   S->nnz = nnz;
   S->n = g->n; 
-  S->rows = g->n; 
   S->a = (double*)malloc(nnz * sizeof(double));
   S->ja =(int*)malloc(nnz*sizeof(int));
   S->ia=(int*)malloc(g->n*sizeof(int));
@@ -138,7 +137,6 @@ void convert2CSR_withdiag(psspmatrix S, graph_t * g, Qfunc_t Q, void *arg)
   nnz = nnz + g->n;  // added number of diagonal elements, which are not in the graph
   S->nnz = nnz;
   S->n = g->n; 
-  S->rows = g->n; 
   S->a = (double*)malloc(nnz * sizeof(double));
   S->ja =(int*)malloc(nnz*sizeof(int));
   S->ia=(int*)malloc(g->n*sizeof(int));
@@ -188,7 +186,6 @@ void convert2CSR_alex(psspmatrix S, graph_t * g)
     
   S->nnz = nnz;
   S->n = g->n; 
-  S->rows = g->n; 
   S->a = (double*)malloc(nnz * sizeof(double));
   S->ja =(int*)malloc(nnz*sizeof(int));
   S->ia=(int*)malloc(g->n*sizeof(int));
@@ -226,7 +223,6 @@ void convert2CSR_alex_diag(psspmatrix S, graph_t * g, double* diag)
   
   S->nnz = nnz;
   S->n = g->n; 
-  S->rows = g->n; 
   S->a = (double*)malloc(nnz * sizeof(double));
   S->ja =(int*)malloc(nnz*sizeof(int));
   S->ia=(int*)malloc(g->n*sizeof(int));
@@ -263,7 +259,7 @@ void print_CSR(psspmatrix S)
        printf("%3.3g, ", S->a[k]); 
     printf(" \n"); 
     printf("Array ia[..]: \n"); 
-    for( k = 0; k <= S->rows; k++)
+    for( k = 0; k <= S->n; k++)
        printf("%d, ", S->ia[k]); 
     printf(" \n"); 
     printf("Array ja[..]: \n"); 
@@ -287,9 +283,12 @@ int alex_mydata_initialization(pdata_storage mydata)
    mydata->ddum=0.0;
    mydata->error=0;
    mydata->Q = (psspmatrix)malloc(sizeof(sspmatrix));
-   mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
-   mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
-
+   mydata->Qinv = NULL;
+   mydata->L = NULL;
+//   mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
+//   mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
+   mydata->mypermutation = NULL;
+   
    for( i = 0; i < 64; i++)
    {
       mydata->iparm[i] = 0;
@@ -380,12 +379,15 @@ int alex_initialization(int flag, pdata_storage mydata)
    }
    if(flag==3) //3="Cholesky factorization"
    {
+      mydata->L = (psspmatrix)malloc(sizeof(sspmatrix));
+
       mydata->phase = 12; // Analysis, numerical factorization
       //  IPARM (26) — Splitting of Forward/Backward Solve.
       
    }
    if(flag==4) //4="Selected inversion"
    {
+      mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
       mydata->phase = -22; /*  do not overwrite internal factor L with selected inversion*/ 
       mydata->iparm[35]  = 1; /*  do not overwrite internal factor L with selected inversion*/ 
 /*It will instead allocate additional memory of size of the numbers of
@@ -640,8 +642,6 @@ void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage m
     
    destin->n = source->n ;
    destin->nia = source->nia ;
-   destin->cols = source->cols ;
-   destin->rows = source->rows ;
    destin->nnz = source->nnz ;
    destin->logdet = source->logdet ;
    destin->ia=(int*)malloc((1+source->n+1) * sizeof(int)); 
@@ -902,9 +902,64 @@ void  alex_clean_CRS_matrix(psspmatrix A)
     }
 }
 
-int alex_clean_mydata(pdata_storage  mydata)
+int alex_clean_mydata(int flag, pdata_storage  mydata)
 {
-   /* To clean what is necessary in mydata->... */
+   /* To clean PARDISO flags after each step... */
+//flag==-1=="initial/common initialization of PARDISO"
+//flag==0=="reordering"
+//flag==1="symbolic factorization"
+//flag==2="numerical factorization"
+//flag==3="Cholesky factorization"
+//flag==4="Partial inversion"
+//4="Solve for x"
+//6="Cholesky factorization"
+   if(flag==0) //0="reordering"
+   {
+     /* -------------------------------------------------------------------- */
+     /* ..  Setup Pardiso control parameters.                                */
+     /* -------------------------------------------------------------------- */
+      mydata->phase = 0; // analysis
+      mydata->error = 0;
+      mydata->iparm[4] = 0; //set to 1 if you want to provide your own permutation array
+   }
+   if(flag==1) //1="symbolic factorization"
+   {
+      mydata->phase = 0; // analysis
+   }
+   if(flag==2) //2="numerical factorization"
+   {
+      mydata->phase = 0; //Numerical factorization
+      mydata->iparm[32] = 0; /* compute determinant */
+   }
+   if(flag==3) //3="Cholesky factorization"
+   {
+      mydata->phase = 0; // Analysis, numerical factorization
+      //  IPARM (26) — Splitting of Forward/Backward Solve.
+      
+   }
+   if(flag==4) //4="Selected inversion"
+   {
+      mydata->phase = 0; /*  do not overwrite internal factor L with selected inversion*/ 
+      mydata->iparm[35]  = 0; /*  do not overwrite internal factor L with selected inversion*/ 
+/*It will instead allocate additional memory of size of the numbers of
+elements in L and U to store these inverse elements. 
+*/
+//  VERY DANGEROUS OPTION    mydata->iparm[36]  = 1; /* PARDISO will return the selected inverse elements
+//A^−1_ij in full symmetric triangular CSR format.*/ 
+   }
+   if(flag==5) //4="Solve for x"
+   {
+      mydata->iparm[7] = 0;       /* Max numbers of iterative refinement steps. */
+      mydata->phase = 0;  //solve
+   
+   }
+   if(flag==6) //6="Cholesky factorization"
+   {
+      mydata->phase = 0; // Analysis, numerical factorization
+      //  IPARM (26) — Splitting of Forward/Backward Solve.
+      
+   }
+   
 }
 
 
@@ -954,15 +1009,15 @@ void write_CSR_matrix(psspmatrix S, char *filename)
     fprintf(fp, "%d\n", S->nnz);
     
     for( k = 0; k < S->nnz; k++)
-       fprintf(fp, "%3.3g, ", S->a[k]); 
+       fprintf(fp, "%3.3g\n ", S->a[k]); 
     fprintf(fp, " \n"); 
     //fprintf(fp, "Array ia[..]: \n"); 
-    for( k = 0; k <= S->rows; k++)
-       fprintf(fp, "%d, ", S->ia[k]); 
+    for( k = 0; k < S->n; k++)
+       fprintf(fp, "%d\n", S->ia[k]); 
     fprintf(fp, " \n"); 
     //fprintf(fp, "Array ja[..]: \n"); 
     for( k = 0; k < S->nnz; k++)
-       fprintf(fp, "%d, ", S->ja[k]); 
+       fprintf(fp, "%d\n", S->ja[k]); 
     fprintf(fp, " \n"); 
     
     fclose(fp);
@@ -989,21 +1044,46 @@ void alex_pardiso_restore(pdata_storage mydata, char *filename)
 
     for( i = 0; i < 64; i++)
     {
-      fscanf( fp, "%d, ", &ip);
+      fscanf( fp, "%d\n ", &ip);
       mydata->iparm[i] = ip;
     }
     for( i = 0; i < 64; i++)
     {
-      fscanf( fp, "%lf, ", &dp);
+      fscanf( fp, "%lf\n ", &dp);
       mydata->dparm[i] = dp; 
     }
+    for( i = 0; i < mydata->Q->n; i++)
+    {
+      fscanf( fp, "%d\n ", &ip);
+      mydata->mypermutation[i] = ip;
+    }
     /* Read sparse matrix in matlab format */
-    filename = "matrixCSR.txt";
-    read_CSR_matrix( mydata->Q, filename);
-
-    
     fclose(fp);
-
+    //filename = "matrixCSR.txt";
+    
+    if(mydata->Q!= NULL)
+       read_CSR_matrix( mydata->Q,  "alex_Q.txt");
+    else
+    {
+       mydata->Q=(psspmatrix )malloc(sizeof(sspmatrix ));
+       read_CSR_matrix( mydata->Q,  "alex_Q.txt");
+    }
+    if(mydata->Qinv!= NULL)
+      read_CSR_matrix( mydata->Qinv,  "alex_Qinv.txt");
+    else
+    {
+       mydata->Qinv=(psspmatrix )malloc(sizeof(sspmatrix ));
+       read_CSR_matrix( mydata->Qinv,  "alex_Qinv.txt");
+    }   
+    if(mydata->L!= NULL)
+      read_CSR_matrix( mydata->L,  "alex_L.txt");
+    else
+    {
+       mydata->Q=(psspmatrix )malloc(sizeof(sspmatrix ));
+       read_CSR_matrix( mydata->L,  "alex_L.txt");
+    }   
+    
+    
     
 }
 
@@ -1025,26 +1105,34 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
     mydata->error=8;
     */
     
-    fprintf(fp, "%d \n",  mydata->mtype);
-    fprintf(fp, "%d \n",  mydata->mnum);
-    fprintf(fp, "%d \n",  mydata->phase);
-    fprintf(fp, "%d \n",  mydata->idum);
-    fprintf(fp, "%d \n",  mydata->nrhs);
-  //  fprintf(fp, "%d \n",  mydata->ipart);
-    fprintf(fp, "%d \n",  mydata->msglvl);
-    fprintf(fp, "%12.12g \n",  mydata->ddum);
-    fprintf(fp, "%d \n",  mydata->error);
-    for(i=0; i<64; i++)
-       fprintf(fp, "%d, ", mydata->iparm[i]);
-    fprintf(fp, "\n");
-    for(i=0; i<64; i++)
-       fprintf(fp, "%12.12g, ", mydata->dparm[i]);
-    fprintf(fp, "\n");
-    filename = "matrixCSR.txt";
-    write_CSR_matrix(mydata->Q, filename);
-
-    
+    fprintf(fp, "%d\n",  mydata->mtype);
+    fprintf(fp, "%d\n",  mydata->mnum);
+    fprintf(fp, "%d\n",  mydata->phase);
+    fprintf(fp, "%d\n",  mydata->idum);
+    fprintf(fp, "%d\n",  mydata->nrhs);
+    fprintf(fp, "%d\n",  mydata->msglvl);
+    fprintf(fp, "%12.12g\n",  mydata->ddum);
+    fprintf(fp, "%d\n",  mydata->error);
     fclose(fp);
+    fp = fopen(filename, "a");
+    for(i=0; i<64; i++)
+       fprintf(fp, "%d\n", mydata->iparm[i]);
+    for(i=0; i<64; i++)
+       fprintf(fp, "%12.12g\n", mydata->dparm[i]);
+    for(i=0; i<mydata->Q->n; i++)
+       fprintf(fp, "%d\n", mydata->mypermutation[i]);
+    fclose(fp);
+    
+        
+        
+    //filename = "matrixCSR.txt";
+    if(mydata->Q!= NULL)
+        write_CSR_matrix(mydata->Q, "alex_Q.txt");
+    if(mydata->Qinv!= NULL)
+        write_CSR_matrix(mydata->Qinv, "alex_Qinv.txt");
+    if(mydata->L!= NULL)
+        write_CSR_matrix(mydata->L, "alex_L.txt");
+    
 }
 
 void alex_test_compare_with_pardiso(pdata_storage mydata)
@@ -1214,30 +1302,31 @@ int main()
     
     alex_initialization(0, mydata); //flag==0=="reordering"
     alex_reordering(mydata, mgraph);
-    alex_clean_mydata(mydata);
+    alex_clean_mydata(0, mydata);
 
     alex_initialization(1, mydata); //flag==1="symbolic factorization"
     alex_initialization(2, mydata); //flag==2="numerical factorization"
     alex_symbolic_factorization(mydata);
-  
-    alex_clean_mydata(mydata);
+    alex_clean_mydata(1, mydata);
+    alex_clean_mydata(2, mydata);
 
     alex_initialization(3, mydata); //flag==3="Cholesky factorization"
     alex_chol(mydata);  //also computes log determinant
-    alex_clean_mydata(mydata);
+    alex_clean_mydata(3, mydata);
 
     alex_initialization(6, mydata); //flag==6="Compute only log-determinant (Cholesky is also computed)"
     alex_log_det(mydata);
-    alex_clean_mydata(mydata);
+    alex_clean_mydata(6, mydata);
 
     alex_initialization(5, mydata); //flag==5="Solution"
     alex_solve_LLTx(mydata, b, x);
-    alex_clean_mydata(mydata);
+    alex_clean_mydata(5, mydata);
+    alex_pardiso_store(mydata, "alex_test_output.txt");
 
     alex_initialization(4, mydata); //flag==4="Partial inversion"
     alex_inv(mydata);
     convert_F2C(mydata->Q);
-    alex_clean_mydata(mydata);
+    alex_clean_mydata(4, mydata);
     alex_finalize(mydata);
     if(x!=NULL) free(x);
     if(b!=NULL) free(b);

@@ -387,6 +387,8 @@ int alex_initialization(int flag, pdata_storage mydata)
    }
    if(flag==4) //4="Selected inversion"
    {
+      if(mydata->Qinv!=NULL)
+          printf("Possible error! mydata->Qinv!=NULL. Memory will be allocated the second time!");
       mydata->Qinv = (psspmatrix)malloc(sizeof(sspmatrix));
       mydata->phase = -22; /*  do not overwrite internal factor L with selected inversion*/ 
       mydata->iparm[35]  = 1; /*  do not overwrite internal factor L with selected inversion*/ 
@@ -452,7 +454,7 @@ void convert_C2F(psspmatrix Q)
  
 }
 
-/* Read sparse matrix in matlab format */
+/* Read sparse matrix in CSR format */
 void read_CSR_matrix( psspmatrix Q, char *filename)
 {
     int    n = 0;
@@ -628,6 +630,8 @@ int alex_symbolic_factorization(pdata_storage mydata)
   return 0;
 }
 
+
+/*Create a full copy of a CSR matrix*/
 void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata)
 {
     int i=0;
@@ -671,7 +675,7 @@ void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage m
 
 //Numerical Cholesky factorization
 //int alex_chol(pdata_storage mydata, pINLA_mtx Q)
-int alex_chol(pdata_storage mydata)
+void alex_chol(pdata_storage mydata)
 {
    printf("Copy matrix Q into matrix L. MAY BE PARDISO DO IT AUTOMATICALLY !?!?!? \n");
    alex_CSRmatrix_copy(mydata->Q, mydata->L,  mydata);
@@ -699,49 +703,38 @@ int alex_chol(pdata_storage mydata)
     printf("\n Cholesky factorization completed ...\n ");
     printf("\n !!! Determinant = %3.3g ...\n ", mydata->dparm[32]);
     
-  return 0;
+
 }
 
 
 
 
 //Solve linear system Lx=b
-int alex_forward_subst(pdata_storage mydata,  double* rhs,  double* y)
+void alex_forward_subst(pdata_storage mydata,  double* rhs,  double* y)
 {
-
 /* ..  Back substitution and iterative refinement.                      */
-    pardiso ( mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
+   pardiso ( mydata->pt, &(mydata->maxfct), &(mydata->mnum), &(mydata->mtype), &(mydata->phase),
              &(mydata->L->n), mydata->L->a, mydata->L->ia, mydata->L->ja, &(mydata->idum), &(mydata->nrhs),
              mydata->iparm, &(mydata->msglvl), rhs, y, &(mydata->error),  mydata->dparm);
-    if (mydata->error != 0) {
+   if (mydata->error != 0) {
         printf("\nERROR during solution: %d", mydata->error);
         exit(3);
     }
-
     printf("\nSolve Ly=rhs completed ... ");
     printf ("\n\n");
 
-    
-    
-
-  return 0;
 }
 
 
+/* -------------------------------------------------------------------- */    
+/* ..  Back substitution and iterative refinement.                      */
+/* -------------------------------------------------------------------- */    
 //Solve linear system L^Tx=b
-int alex_back_subst(pdata_storage mydata,  double* y,  double* x)
+void alex_back_subst(pdata_storage mydata,  double* y,  double* x)
 {
     clock_t start, end;
     double cpu_time_used;
     int i=0;
-    
-    
-/* -------------------------------------------------------------------- */    
-/* ..  Back substitution and iterative refinement.                      */
-/* -------------------------------------------------------------------- */    
-
-
-
 //On entry: Solve a system A^T x = b by using the factorization of A.
 //The default value of IPARM(12) is 0. IPARM(12)=1 indicates that you would like to solve
 //transposed system A^T x = b.
@@ -765,13 +758,11 @@ int alex_back_subst(pdata_storage mydata,  double* y,  double* x)
         printf("\n x [%d] = % f", i, x[i] );
     }
     printf ("\n\n");
-
-  return 0;
 }
 
 
 //Solve linear system LL^Tx=b, return x
-int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
+void alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
 {
   double* y=NULL;
   int j=0, k=0;
@@ -784,11 +775,10 @@ int alex_solve_LLTx(pdata_storage mydata,  double* rhs,  double* x)
   
   free(y);
 
-  return 0;
 }
 
 //Computing partial inverse, means solving linear system foer specific RHS
-int alex_inv(pdata_storage mydata)
+void alex_inv(pdata_storage mydata)
 {
   psspmatrix Q = mydata->Q;
   
@@ -802,15 +792,12 @@ int alex_inv(pdata_storage mydata)
   double* b;
   x = (double*)malloc( mydata->Q->n*sizeof(double)) ;
   b = (double*)malloc( mydata->Q->n*sizeof(double)) ;
-  
-
   alex_CSRmatrix_copy(mydata->Q, mydata->Qinv,  mydata);
   
-  for (i = 0; i < mydata->Q->n; i++) {
+   for (i = 0; i < mydata->Q->n; i++) {
       b[i] = i;
       x[i] = 0.0;
-  }
-
+   }
    if (mydata->solver == 0)
    {
         mydata->phase = -22;
@@ -825,10 +812,8 @@ int alex_inv(pdata_storage mydata)
             j = mydata->Q->ia[k]-1;
             printf ("A^{-1}(%d, %d)= %32.24e\n", k, mydata->Qinv->ja[j]-1, mydata->Qinv->a[j]);
        }
-
    } 
-
-  return 0;
+  
 }
 
 //Compute log-det
@@ -861,7 +846,7 @@ double alex_log_det(pdata_storage mydata)
 /* -------------------------------------------------------------------- */    
 /* ..  Termination and release of memory.                               */
 /* -------------------------------------------------------------------- */    
-int alex_finalize(pdata_storage mydata)
+void alex_finalize(pdata_storage mydata)
 {
     int phase = -1;                 /* Release internal memory. */
     
@@ -999,27 +984,65 @@ int test_conversion()
 }
 
 
-void write_CSR_matrix(psspmatrix S, char *filename)
+void store_CSR_matrix(psspmatrix S, char *filename)
 {
     int k=0;
     FILE *fp = NULL;
     
-    fp = fopen(filename, "a");
+    fp = fopen(filename, "w");
     
     fprintf(fp, "%d\n", S->nnz);
+    fprintf(fp, "%d\n", S->n);
     
     for( k = 0; k < S->nnz; k++)
        fprintf(fp, "%3.3g\n ", S->a[k]); 
     fprintf(fp, " \n"); 
     //fprintf(fp, "Array ia[..]: \n"); 
-    for( k = 0; k < S->n; k++)
+    for( k = 0; k <= S->n; k++)
        fprintf(fp, "%d\n", S->ia[k]); 
     fprintf(fp, " \n"); 
     //fprintf(fp, "Array ja[..]: \n"); 
     for( k = 0; k < S->nnz; k++)
        fprintf(fp, "%d\n", S->ja[k]); 
-    fprintf(fp, " \n"); 
+    fclose(fp);
+  
+}
+
+
+/*Restore CSR matrix from file, assuming that memory for a, ia, ja is NOT allocated*/
+void restore_CSR_matrix(psspmatrix S, char *filename)
+{
+    int i=0, ip=0;
+    double dp=0.0;
+    FILE *fp = NULL;
     
+    fp = fopen(filename, "r");
+    
+    fscanf( fp, "%d\n", &(S->nnz));
+    fscanf( fp, "%d\n", &(S->n));
+    
+    S->ia = (int*)malloc((S->n+1)*sizeof(int));
+    S->ja = (int*)malloc(S->nnz*sizeof(int));
+    S->a  = (double*)malloc(S->nnz*sizeof(double));
+
+    for( i = 0; i < S->nnz; i++)
+    {
+      fscanf( fp, "%lf\n ", &dp);
+      S->a[i] = dp;
+    }
+    fscanf( fp, "\n");
+    for( i = 0; i <= S->n; i++)
+    {
+      fscanf( fp, "%d\n ", &ip);
+      S->ia[i] = ip;
+    }
+    fscanf( fp, "\n");
+    for( i = 0; i < S->nnz; i++)
+    {
+      fscanf( fp, "%d\n ", &ip);
+      S->ja[i] = ip;
+    }
+
     fclose(fp);
   
 }
@@ -1041,7 +1064,6 @@ void alex_pardiso_restore(pdata_storage mydata, char *filename)
     fscanf( fp, "%d\n", &mydata->msglvl);
     fscanf( fp, "%lf\n", &mydata->ddum);
     fscanf( fp, "%d\n", &mydata->error);
-
     for( i = 0; i < 64; i++)
     {
       fscanf( fp, "%d\n ", &ip);
@@ -1057,31 +1079,22 @@ void alex_pardiso_restore(pdata_storage mydata, char *filename)
       fscanf( fp, "%d\n ", &ip);
       mydata->mypermutation[i] = ip;
     }
-    /* Read sparse matrix in matlab format */
     fclose(fp);
     //filename = "matrixCSR.txt";
     
+    /* Read sparse matrix in matlab format */
     if(mydata->Q!= NULL)
-       read_CSR_matrix( mydata->Q,  "alex_Q.txt");
-    else
-    {
        mydata->Q=(psspmatrix )malloc(sizeof(sspmatrix ));
-       read_CSR_matrix( mydata->Q,  "alex_Q.txt");
-    }
-    if(mydata->Qinv!= NULL)
-      read_CSR_matrix( mydata->Qinv,  "alex_Qinv.txt");
-    else
-    {
-       mydata->Qinv=(psspmatrix )malloc(sizeof(sspmatrix ));
-       read_CSR_matrix( mydata->Qinv,  "alex_Qinv.txt");
-    }   
-    if(mydata->L!= NULL)
-      read_CSR_matrix( mydata->L,  "alex_L.txt");
-    else
-    {
-       mydata->Q=(psspmatrix )malloc(sizeof(sspmatrix ));
-       read_CSR_matrix( mydata->L,  "alex_L.txt");
-    }   
+    restore_CSR_matrix( mydata->Q,  "alex_Q.txt");
+    store_CSR_matrix(mydata->Q, "alex_Q2.txt");
+    
+    //if(mydata->Qinv!= NULL)
+    //   mydata->Qinv=(psspmatrix )malloc(sizeof(sspmatrix ));
+    //restore_CSR_matrix( mydata->Qinv,  "alex_Qinv.txt");
+    //store_CSR_matrix(mydata->Qinv, "alex_Qinv.txt");
+    //if(mydata->L!= NULL)
+    //   mydata->L=(psspmatrix )malloc(sizeof(sspmatrix ));
+    //restore_CSR_matrix( mydata->L,  "alex_L.txt");
     
     
     
@@ -1092,7 +1105,7 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
 {
     FILE *fp = NULL;
     int i=0;
-    fp = fopen(filename, "a");
+    fp = fopen(filename, "w");
     
     /*
     mydata->mtype=1;
@@ -1113,8 +1126,6 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
     fprintf(fp, "%d\n",  mydata->msglvl);
     fprintf(fp, "%12.12g\n",  mydata->ddum);
     fprintf(fp, "%d\n",  mydata->error);
-    fclose(fp);
-    fp = fopen(filename, "a");
     for(i=0; i<64; i++)
        fprintf(fp, "%d\n", mydata->iparm[i]);
     for(i=0; i<64; i++)
@@ -1127,11 +1138,11 @@ void alex_pardiso_store(pdata_storage mydata, char *filename)
         
     //filename = "matrixCSR.txt";
     if(mydata->Q!= NULL)
-        write_CSR_matrix(mydata->Q, "alex_Q.txt");
+        store_CSR_matrix(mydata->Q, "alex_Q.txt");
     if(mydata->Qinv!= NULL)
-        write_CSR_matrix(mydata->Qinv, "alex_Qinv.txt");
+        store_CSR_matrix(mydata->Qinv, "alex_Qinv.txt");
     if(mydata->L!= NULL)
-        write_CSR_matrix(mydata->L, "alex_L.txt");
+        store_CSR_matrix(mydata->L, "alex_L.txt");
     
 }
 
@@ -1217,23 +1228,14 @@ int main()
    clock_t start, end;
    double cpu_time_used;
    pdata_storage mydata= NULL;
-  
-
    int nnz;
    int n;
    int* perm;
-   
    int mtype = -2;        /* Real symmetric matrix */
-
-    
    double* b; /* RHS and solution vectors. */
    double* x;
    int nrhs = 1;          /* Number of right hand sides. */
-
-    /* Internal solver memory pointer pt,                  */
-    /* 32-bit: int pt[64]; 64-bit: long int pt[64]         */
-    /* or void *pt[64] should be OK on both architectures  */ 
-    void    *pt[64]; 
+    void    *pt[64]; /* Internal solver memory pointer pt,                  */
     /* Pardiso control parameters. */
     int      iparm[64];
     double   dparm[64];
@@ -1322,6 +1324,7 @@ int main()
     alex_solve_LLTx(mydata, b, x);
     alex_clean_mydata(5, mydata);
     alex_pardiso_store(mydata, "alex_test_output.txt");
+    alex_pardiso_restore(mydata, "alex_test_output.txt");
 
     alex_initialization(4, mydata); //flag==4="Partial inversion"
     alex_inv(mydata);

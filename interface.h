@@ -163,22 +163,22 @@ int alex_symbolic_factorization(pdata_storage mydata);
 
 //Numerical Cholesky factorization
 //int alex_chol(pdata_storage mydata, pINLA_mtx Q);
-int alex_chol(pdata_storage mydata);
+void alex_chol(pdata_storage mydata);
 
 //Solve linear system Lx=b
-int alex_solve_Lx(pdata_storage mydata,  double* v,  double* w);
+void alex_solve_Lx(pdata_storage mydata,  double* v,  double* w);
 
 
 //Solve linear system L^Tx=b
-int alex_solve_LTx(pdata_storage mydata,  double* v,  double* w);
+void alex_solve_LTx(pdata_storage mydata,  double* v,  double* w);
 
 
 //Solve linear system LL^Tx=b
-int alex_solve_LLTx(pdata_storage mydata,  double* b,  double* x);
+void alex_solve_LLTx(pdata_storage mydata,  double* b,  double* x);
 
 //Computing partial inverse, means solving linear system foer specific RHS
 //int alex_inv(pdata_storage mydata,  pINLA_mtx Q,  pINLA_mtx Qinv);
-int alex_inv(pdata_storage mydata);
+void alex_inv(pdata_storage mydata);
 
 //Compute log-det
 double alex_log_det(pdata_storage mydata);
@@ -195,7 +195,7 @@ void alex_pardiso_store(pdata_storage mydata, char *filename);
 /* -------------------------------------------------------------------- */    
 /* ..  Termination and release of memory.                               */
 /* -------------------------------------------------------------------- */    
-int alex_finalize(pdata_storage mydata);
+void alex_finalize(pdata_storage mydata);
 
 
 /* To test the code run this procedure */
@@ -205,7 +205,8 @@ int alex_finalize(pdata_storage mydata);
 int test_conversion();
 int main();
 
-void write_CSR_matrix(psspmatrix S, char *filename);
+void store_CSR_matrix(psspmatrix S, char *filename);
+void restore_CSR_matrix(psspmatrix S, char *filename);
 void read_CSR_matrix(psspmatrix S, char *filename);
 //void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin);
 void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage mydata);

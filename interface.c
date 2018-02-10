@@ -252,7 +252,8 @@ void test_alex_add_diag()
 
     newg = (graph_t *) calloc(1, sizeof(graph_t));
 
-    g = read_graph("minitest5.graph.txt");//working
+    g = read_graph("minitest7.graph.txt");//working
+    printf("Graph is readed succesfully! \n");
    // g = read_graph("minitest6.graph.txt"); //not working
     print_graph(g);
     /* Original matrix is
@@ -283,11 +284,53 @@ void alex_add_diag(graph_t* g, graph_t* newg)
  
     newg->n = g->n;
     
-    newg->nnbs = (int *) calloc(g->n, sizeof(int));
-    newg->nbs = (int **) calloc(g->n, sizeof(int *));
+    newg->nnbs = (int *) calloc(newg->n, sizeof(int));
+    newg->nbs = (int **) calloc(newg->n, sizeof(int *));
 
     for (k = 0; k < g->n; k++) 
        newg->nnbs[k] = g->nnbs[k] + 1;
+    
+    for (i = 0; i < g->n; i++) {
+        newg->nbs[i] = (int *) calloc(newg->nnbs[i], sizeof(int));
+        for (k = 0; k < g->nnbs[i]; k++) {
+            if(g->nbs[i][k] < i)
+              newg->nbs[i][k] = g->nbs[i][k];
+            if(g->nbs[i][k] == i)
+            {    
+               printf("Attention, the innitial INLA graph cannot contain diagonal elements! \n");
+            }   
+            if(g->nbs[i][k] > i)
+            {
+              newg->nbs[i][k] = i;
+              newg->nbs[i][k+1] = g->nbs[i][k];
+            }   
+        }
+        if(g->nbs[i][g->nnbs[i]-1] < i)
+           newg->nbs[i][newg->nnbs[i]-1] = i;
+            
+    }
+    print_graph(newg);
+}
+
+
+
+void alex_add_diag_corrected(graph_t* g, graph_t* newg)
+{
+  /*Need to modify graph, so that is contains diagonal*/  
+    int i, k, kk;
+ //   graph_t *newg = (graph_t *) calloc(1, sizeof(graph_t));
+ 
+    newg->n = g->n;
+    
+    newg->nnbs = (int *) calloc(newg->n, sizeof(int));
+    newg->nbs = (int **) calloc(newg->n, sizeof(int *));
+
+    for (k = 0; k < g->n; k++) 
+       if(g->nnbs[k]==k) 
+         newg->nnbs[k] = g->nnbs[k] + 1;
+       else
+         if(k<g->nnbs[k]) 
+           newg->nnbs[k] = 1;
     
     for (i = 0; i < g->n; i++) {
         newg->nbs[i] = (int *) calloc(newg->nnbs[i], sizeof(int));

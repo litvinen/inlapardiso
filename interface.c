@@ -245,10 +245,72 @@ void convert2CSR_alex_diag(psspmatrix S, graph_t * g, double* diag)
 }
 
 
-void alex_add_diag(graph_t * g, double* diag)
+void test_alex_add_diag()
+{
+    graph_t *g;
+    graph_t *newg;
+
+    newg = (graph_t *) calloc(1, sizeof(graph_t));
+
+    g = read_graph("minitest5.graph.txt");//working
+   // g = read_graph("minitest6.graph.txt"); //not working
+    print_graph(g);
+    /* Original matrix is
+     0 1 2 0
+     1 2 0 2
+     2 3 0 1 3
+     3 2 0 1
+     */
+    /* After adding main diagonal
+     0 2 0 2 
+     1 3 0 1 2
+     2 4 0 1 2 3
+     3 3 0 1 3
+     */
+    alex_add_diag(g, newg);
+    print_graph(newg);
+
+    
+}
+
+
+/*add diagonal to the INLA graph*/
+void alex_add_diag(graph_t* g, graph_t* newg)
 {
   /*Need to modify graph, so that is contains diagonal*/  
+    int i, k, kk;
+ //   graph_t *newg = (graph_t *) calloc(1, sizeof(graph_t));
+ 
+    newg->n = g->n;
+    
+    newg->nnbs = (int *) calloc(g->n, sizeof(int));
+    newg->nbs = (int **) calloc(g->n, sizeof(int *));
+
+    for (k = 0; k < g->n; k++) 
+       newg->nnbs[k] = g->nnbs[k] + 1;
+    
+    for (i = 0; i < g->n; i++) {
+        newg->nbs[i] = (int *) calloc(newg->nnbs[i], sizeof(int));
+        for (k = 0; k < g->nnbs[i]; k++) {
+            if(g->nbs[i][k] < i)
+              newg->nbs[i][k] = g->nbs[i][k];
+            if(g->nbs[i][k] == i)
+            {    
+               printf("Attention, the innitial INLA graph cannot contain diagonal elements! \n");
+            }   
+            if(g->nbs[i][k] > i)
+            {
+              newg->nbs[i][k] = i;
+              newg->nbs[i][k+1] = g->nbs[i][k];
+            }   
+        }
+        if(g->nbs[i][g->nnbs[i]-1] < i)
+           newg->nbs[i][newg->nnbs[i]-1] = i;
+            
+    }
+    print_graph(newg);
 }
+
 
 /*Print out arrays: a, ia, ja of a CSR matrix*/
 void print_CSR(psspmatrix S)
@@ -1249,6 +1311,12 @@ int main()
     psspmatrix Q = NULL, Qinv=NULL, L=NULL;
     psgraph_t mgraph = NULL;
     graph_t *g;
+    
+    
+    printf("!!!TEST!!!!\n");
+    test_alex_add_diag();
+    printf("!!!TEST ENDED!!!!\n");
+    
     
     printf("!!!Note that in C programming : iparm[3]=number_of_processors from manual is iparm[2] in C program!!!!\n");
     mydata= (pdata_storage)malloc(sizeof(sdata_storage ));

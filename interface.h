@@ -213,5 +213,7 @@ void alex_CSRmatrix_copy(psspmatrix  source, psspmatrix  destin, pdata_storage m
 void alex_test_compare_with_pardiso(pdata_storage mydata);
 void alex_clean_CRS_matrix(psspmatrix A);
 int alex_clean_mydata(int flag, pdata_storage  mydata);
+void alex_add_diag(graph_t* g, graph_t* newg);
+void test_alex_add_diag();
 
 #endif

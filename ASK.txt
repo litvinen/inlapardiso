@@ -7,4 +7,4 @@
 1. How to get an access to reordering/permutation
 2. How to use option mtype=2. In the current version the partial inverse and the determinat are not computed or computed wrong.
 3. How to get access to the diagonal matrix D in LDL^T factorization (mtype=-2)
-4. ...
+4. To ask more details how memory is allocated for the inverse and for the Cholesky factors. What is/can be overwritten?

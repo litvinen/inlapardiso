@@ -1,0 +1,10 @@
+% We would like to clarify these items with Olaf and his team
+% Please add all open questions/issues here
+% Haavard Rue and Alex Litvinenko
+
+
+
+1. How to get an access to reordering/permutation
+2. How to use option mtype=2. In the current version the partial inverse and the determinat are not computed or computed wrong.
+3. How to get access to the diagonal matrix D in LDL^T factorization (mtype=-2)
+4. ...

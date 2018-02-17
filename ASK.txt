@@ -3,8 +3,32 @@
 % Haavard Rue and Alex Litvinenko
 
 
+- License issues.
+  - Can we distribute libpardiso with the package or must each user
+    download it by themself? 
+  - User-spesific license file we presume?
+  - Win-build with gcc/gfortran?
+  - Can all use of R-INLA be classified as 'academic' ? 
 
-1. How to get an access to reordering/permutation
-2. How to use option mtype=2. In the current version the partial inverse and the determinat are not computed or computed wrong.
-3. How to get access to the diagonal matrix D in LDL^T factorization (mtype=-2)
-4. To ask more details how memory is allocated for the inverse and for the Cholesky factors. What is/can be overwritten?
+- Can we get an access to reordering/permutation? Statistical models
+  often have a set of nodes neigbours to many. METIS has an option to
+  order these last, but this is option is default off. How is this set
+  in PARDISO or can it be changed?
+
+- All matrices that we'll use pardiso for, is SPD. mtype=2 does not
+  'work'. In the current version (6.1 and 5) the partial inverse is
+  not returned, and the log-determinat are set to 0.
+
+- How to get access to the diagonal matrix D in LDL^T factorization
+  for mtype=-2? we need that in order to emulate party solve of 'LL^T'
+  for SPD.
+
+- Can we obtain a copy 'void *pt[64]' ? if yes, will different pt's be
+  thread-safe?
+
+- We also need to solve ()x=b with not from 1..n, but from i..j, as we
+  know the zero-pattern of the RHS. Is there any way this can added?
+
+
+
+
